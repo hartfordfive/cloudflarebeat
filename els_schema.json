@@ -1,0 +1,767 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "/",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "integer",
+      "description": "unix timestamp, in nanoseconds, when the log message was created"
+    },
+    "zoneId": {
+      "type": "integer",
+      "description": "FOR INTERNAL USE ONLY"
+    },
+    "zonePlan": {
+      "type": "string",
+      "description": "zone plan type",
+      "enum": [
+        "free",
+        "pro",
+        "business",
+        "enterprise",
+        "unk"
+      ]
+    },
+    "ownerId": {
+      "type": "integer",
+      "description": "FOR INTERNAL USE ONLY"
+    },
+    "zoneName": {
+      "type": "string",
+      "description": "zone name"
+    },
+    "hosterId": {
+      "type": "integer",
+      "description": "FOR INTERNAL USE ONLY"
+    },
+    "brandId": {
+      "type": "integer",
+      "description": "FOR INTERNAL USE ONLY"
+    },
+    "rayId": {
+      "type": "string",
+      "description": "unique request identifier"
+    },
+    "securityLevel": {
+      "type": "string",
+      "description": "Security level configured for the zone",
+      "enum": [
+        "unk",
+        "low",
+        "med",
+        "high",
+        "eoff",
+        "help",
+        "off"
+      ]
+    },
+    "flags": {
+      "type": "integer",
+      "description": "FOR INTERNAL USE ONLY"
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "description": "IP address of connecting host"
+        },
+        "srcPort": {
+          "type": "integer",
+          "description": "IP source port"
+        },
+        "ipClass": {
+          "type": "string",
+          "description": "IP address classification",
+          "enum": [
+            "unknown",
+            "clean",
+            "badHost",
+            "searchEngine",
+            "whitelist",
+            "greylist",
+            "monitoringService",
+            "securityScanner",
+            "noRecord",
+            "scan",
+            "backupService",
+            "mobilePlatform",
+            "tor"
+          ]
+        },
+        "country": {
+          "type": "string",
+          "description": "ISO two letter country code"
+        },
+        "sslProtocol": {
+          "type": "string",
+          "description": "SSL protocol used",
+          "enum": [
+            "SSLv3",
+            "TLSv1",
+            "TLSv1.1",
+            "TLSv1.2",
+            "TLSv1.3"
+          ]
+        },
+        "sslCipher": {
+          "type": "string",
+          "description": "SSL cipher used for connection",
+          "enum": [
+            "UNK",
+            "NONE",
+            "RC4-SHA",
+            "ECDHE-RSA-RC4-SHA",
+            "DES-CBC3-SHA",
+            "ECDHE-RSA-DES-CBC3-SHA",
+            "AES256-SHA",
+            "AES256-SHA256",
+            "AES256-GCM-SHA384",
+            "ECDHE-RSA-AES256-SHA",
+            "ECDHE-RSA-AES256-SHA384",
+            "ECDHE-RSA-AES256-GCM-SHA384",
+            "AES128-SHA",
+            "AES128-SHA256",
+            "AES128-GCM-SHA256",
+            "ECDHE-RSA-AES128-SHA",
+            "ECDHE-RSA-AES128-SHA256",
+            "ECDHE-RSA-AES128-GCM-SHA256",
+            "ECDHE-RSA-CHACHA20-POLY1305",
+            "ECDHE-ECDSA-RC4-SHA",
+            "ECDHE-ECDSA-DES-CBC3-SHA",
+            "ECDHE-ECDSA-AES256-SHA",
+            "ECDHE-ECDSA-AES256-SHA384",
+            "ECDHE-ECDSA-AES256-GCM-SHA384",
+            "ECDHE-ECDSA-AES128-SHA",
+            "ECDHE-ECDSA-AES128-SHA256",
+            "ECDHE-ECDSA-AES128-GCM-SHA256",
+            "ECDHE-ECDSA-CHACHA20-POLY1305"
+          ]
+        },
+        "sslFlags": {
+          "type": "integer",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "deviceType": {
+          "type": "string",
+          "description": "device type category",
+          "enum": [
+            "unknown",
+            "desktop",
+            "mobile",
+            "tablet"
+          ]
+        },
+        "asNum": {
+          "type": "integer",
+          "description": "Autonomous system number of client ip"
+        }
+      }
+    },
+    "clientRequest": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "description": "Total number of HTTP request bytes sent by client"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "description": "Total number of HTTP request body bytes sent by client"
+        },
+        "httpHost": {
+          "type": "string",
+          "description": "host header sent by client"
+        },
+        "httpMethod": {
+          "type": "string",
+          "description": "HTTP method sent by client",
+          "enum": [
+            "UNKNOWN",
+            "GET",
+            "POST",
+            "DELETE",
+            "PUT",
+            "HEAD",
+            "PURGE",
+            "OPTIONS",
+            "PROPFIND",
+            "MKCOL",
+            "PATCH",
+            "ACL",
+            "BCOPY",
+            "BDELETE",
+            "BMOVE",
+            "BPROPFIND",
+            "BPROPPATCH",
+            "CHECKIN",
+            "CHECKOUT",
+            "CONNECT",
+            "COPY",
+            "LABEL",
+            "LOCK",
+            "MERGE",
+            "MKACTIVITY",
+            "MKWORKSPACE",
+            "MOVE",
+            "NOTIFY",
+            "ORDERPATCH",
+            "POLL",
+            "PROPPATCH",
+            "REPORT",
+            "SEARCH",
+            "SUBSCRIBE",
+            "TRACE",
+            "UNCHECKOUT",
+            "UNLOCK",
+            "UNSUBSCRIBE",
+            "UPDATE",
+            "VERSION-CONTROL",
+            "BASELINE-CONTROL",
+            "X-MS-ENUMATTS",
+            "RPC_OUT_DATA",
+            "RPC_IN_DATA",
+            "JSON",
+            "COOK",
+            "TRACK"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "description": "request URI sent by client"
+        },
+        "httpProtocol": {
+          "type": "string",
+          "description": "HTTP protocol used by client",
+          "enum": [
+            "HTTP/1.0",
+            "HTTP/1.1",
+            "HTTP/1.2",
+            "HTTP/2.0",
+            "SPDY/3.1"
+          ]
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "HTTP User-Agent"
+        },
+        "flags": {
+          "type": "integer",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "headers": {
+          "type": "array",
+          "items": [],
+          "description": "headers which are defined for logging from request",
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "cookies": {
+          "type": "array",
+          "items": [],
+          "description": "cookies which are defined for logging from request",
+          "minItems": 0,
+          "maxItems": 100
+        }
+      }
+    },
+    "edgeResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "description": "HTTP status code of response"
+        },
+        "bytes": {
+          "type": "integer",
+          "description": "total number of HTTP response bytes sent to client"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "description": "total number of HTTP response bytes sent to client in the response body"
+        },
+        "compressionRatio": {
+          "type": "number",
+          "description": "compression ratio"
+        },
+        "headers": {
+          "type": "array",
+          "items": [],
+          "description": "headers which are defined for logging from the edge response"
+        },
+        "contentType": {
+          "type": "string",
+          "description": "response content type"
+        },
+        "setCookies": {
+          "type": "array",
+          "items": [],
+          "description": "custom array of set cookies at the edge"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "startTimestamp": {
+          "type": "integer",
+          "description": "unix timestamp, in nanoseconds, of the front line server process start"
+        },
+        "endTimestamp": {
+          "type": "integer",
+          "description": "unix timestamp, in nanoseconds, of the front line server process end"
+        },
+        "colo": {
+          "type": "integer",
+          "description": "colocation ID"
+        },
+        "flServerIp": {
+          "type": "string",
+          "description": "frontline server IP address"
+        },
+        "flServerPort": {
+          "type": "integer",
+          "description": "frontline server port that accepted the connection"
+        },
+        "flServerName": {
+          "type": "string",
+          "description": "frontline server hostname"
+        },
+        "enabledFlags": {
+          "type": "integer",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "usedFlags": {
+          "type": "integer",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "pathingOp": {
+          "type": "string",
+          "description": "first level path descriptor",
+          "enum": [
+            "unknown",
+            "errHost",
+            "ban",
+            "tempOk",
+            "chl",
+            "wl"
+          ]
+        },
+        "pathingSrc": {
+          "type": "string",
+          "description": "source of the action that was taken",
+          "enum": [
+            "unknown ",
+            "bic",
+            "err",
+            "forced",
+            "hot",
+            "macro",
+            "skip",
+            "sslv",
+            "user",
+            "undef"
+          ]
+        },
+        "pathingStatus": {
+          "type": "string",
+          "description": "second level path descriptor",
+          "enum": [
+            "unknown",
+            "aoCrawl",
+            "badHost",
+            "badOk",
+            "bak",
+            "captchaErr",
+            "captchaFail",
+            "captchaNew",
+            "captchaOk",
+            "captchaSucc",
+            "cdnjs",
+            "ctry",
+            "cyclic",
+            "dnsErr",
+            "fint",
+            "grey",
+            "ip",
+            "ipr16",
+            "ipr24",
+            "jschlErr",
+            "jschlFail",
+            "jschlNew",
+            "jschlOk",
+            "jschlSucc",
+            "mob",
+            "mon",
+            "new",
+            "nr",
+            "reservedIp",
+            "reservedIp6",
+            "scan",
+            "se",
+            "wl",
+            "sniMismatch"
+          ]
+        },
+        "bbResult": {
+          "type": "string",
+          "description": "result of browser integrity check"
+        },
+        "cacheResponseTime": {
+          "type": "integer",
+          "description": "cache response time"
+        },
+        "waf": {
+          "type": "object",
+          "properties": {
+            "timestampStart": {
+              "type": "integer",
+              "description": "unix timestamp, in nanoseconds, when the WAF received the request"
+            },
+            "timestampEnd": {
+              "type": "integer",
+              "description": "unix timestamp, in nanoseconds, when the WAF completed the request"
+            },
+            "profile": {
+              "type": "string",
+              "description": "waf profile"
+            },
+            "ruleId": {
+              "type": "string",
+              "description": "triggered rule id"
+            },
+            "ruleMessage": {
+              "type": "string",
+              "description": "message associated with triggered rule"
+            },
+            "action": {
+              "type": "string",
+              "description": "WAF action that is taken"
+            },
+            "ruleDetail": {
+              "type": "array",
+              "items": [],
+              "description": "rule matching details"
+            },
+            "matchedVar": {
+              "type": "string",
+              "description": "variables which contained the matched data"
+            },
+            "activatedRules": {
+              "type": "array",
+              "items": {
+                "id": "0",
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "id": "id",
+                    "type": "string",
+                    "description": "rule id"
+                  },
+                  "group": {
+                    "id": "group",
+                    "type": "string",
+                    "description": "rule group name"
+                  }
+                }
+              },
+              "description": "additional activated rules"
+            },
+            "ruleGroup": {
+              "type": "string",
+              "description": "rule group that the rule id belongs to"
+            },
+            "exitCode": {
+              "type": "integer",
+              "description": "HTTP status code the WAF exited with"
+            },
+            "xssScore": {
+              "type": "integer",
+              "description": "cross site scripting score"
+            },
+            "sqlInjectionScore": {
+              "type": "integer",
+              "description": "SQL injection score"
+            },
+            "anomalyScore": {
+              "type": "integer",
+              "description": "anomaly detection score"
+            },
+            "tags": {
+              "type": "array",
+              "items": [],
+              "description": "attack grouping tags"
+            },
+            "flags": {
+              "type": "integer",
+              "description": "flag to denote simulate mode"
+            }
+          }
+        }
+      }
+    },
+    "edgeRequest": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "description": "total number of HTTP request bytes sent by edge to the origin server"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "description": "placeholder - not currently used"
+        },
+        "httpHost": {
+          "type": "string",
+          "description": "HTTP host header sent from the edge to the origin server"
+        },
+        "httpMethod": {
+          "type": "string",
+          "description": "HTTP method sent from the edge to the origin server",
+          "enum": [
+            "UNKNOWN",
+            "GET",
+            "POST",
+            "DELETE",
+            "PUT",
+            "HEAD",
+            "PURGE",
+            "OPTIONS",
+            "PROPFIND",
+            "MKCOL",
+            "PATCH",
+            "ACL",
+            "BCOPY",
+            "BDELETE",
+            "BMOVE",
+            "BPROPFIND",
+            "BPROPPATCH",
+            "CHECKIN",
+            "CHECKOUT",
+            "CONNECT",
+            "COPY",
+            "LABEL",
+            "LOCK",
+            "MERGE",
+            "MKACTIVITY",
+            "MKWORKSPACE",
+            "MOVE",
+            "NOTIFY",
+            "ORDERPATCH",
+            "POLL",
+            "PROPPATCH",
+            "REPORT",
+            "SEARCH",
+            "SUBSCRIBE",
+            "TRACE",
+            "UNCHECKOUT",
+            "UNLOCK",
+            "UNSUBSCRIBE",
+            "UPDATE",
+            "VERSION-CONTROL",
+            "BASELINE-CONTROL",
+            "X-MS-ENUMATTS",
+            "RPC_OUT_DATA",
+            "RPC_IN_DATA",
+            "JSON",
+            "COOK",
+            "TRACK"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "description": "HTTP URI sent from the edge to the origin server"
+        },
+        "keepaliveStatus": {
+          "type": "string",
+          "description": "FOR INTERNAL USE ONLY"
+        }
+      }
+    },
+    "cacheResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "description": "HTTP status code of response"
+        },
+        "bytes": {
+          "type": "integer",
+          "description": "amount of bytes sent to a client"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "description": "placeholder - not currently used"
+        },
+        "contentType": {
+          "type": "string",
+          "description": "Content-Type response from cache"
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "startTimestamp": {
+          "type": "integer",
+          "description": "unix timestamp, in nanoseconds, when the cache server received the request"
+        },
+        "endTimestamp": {
+          "type": "integer",
+          "description": "unix timestamp, in nanoseconds, when the cache server completed processing the request"
+        },
+        "cacheServerName": {
+          "type": "string",
+          "description": "cache server hostname"
+        },
+        "cacheFileKey": {
+          "type": "string",
+          "description": "binary representation of md5 hash of cache object"
+        },
+        "bckType": {
+          "type": "string",
+          "description": "FOR INTERNAL USE ONLY",
+          "enum": [
+            "unk",
+            "nc",
+            "ob1",
+            "ob2",
+            "byc",
+            "se",
+            "ao",
+            "bot",
+            "mbag",
+            "pe1",
+            "pe2",
+            "pesr",
+            "cdnfileApp",
+            "cdnfileNexp",
+            "cdnfile",
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "ce",
+            "fc",
+            "ocsp",
+            "cdnfilecustom",
+            "custom",
+            "cdnfileAppAsset"
+          ]
+        },
+        "cacheStatus": {
+          "type": "string",
+          "description": "status of object in cache",
+          "enum": [
+            "miss",
+            "expired",
+            "updating",
+            "state",
+            "hit",
+            "ignored",
+            "bypass",
+            "revalidated"
+          ]
+        },
+        "cacheInternalIp": {
+          "type": "string",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "cacheExternalIp": {
+          "type": "string",
+          "description": "IP used for connection between cache and origin server"
+        },
+        "cacheExternalPort": {
+          "type": "integer",
+          "description": "source port used for connection between cache and origin"
+        }
+      }
+    },
+    "cacheRequest": {
+      "type": "object",
+      "properties": {
+        "keepaliveStatus": {
+          "type": "string",
+          "description": "status of origin connection keepalive",
+          "enum": [
+            "unknown",
+            "noKeepalives",
+            "noReuseOpenFailed",
+            "noReuseAccepted",
+            "reuseRefused",
+            "reuseAcepted"
+          ]
+        }
+      }
+    },
+    "originResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "description": "HTTP status code of response"
+        },
+        "bytes": {
+          "type": "integer",
+          "description": "number of bytes returned to cache from origin"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "description": "placeholder - not currently used"
+        },
+        "httpLastModified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HTTP Last-Modified header value - will be 0 if not present - presented as unix timestamp in nano seconds"
+        },
+        "httpExpires": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HTTP Expires header value - will be 0 if not present - presented as unix timestamp in nano seconds"
+        },
+        "flags": {
+          "type": "integer",
+          "description": "FOR INTERNAL USE ONLY"
+        },
+        "headers": {
+          "type": "array",
+          "items": [],
+          "description": "placeholder - not currently used"
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "description": "IP address of origin server"
+        },
+        "port": {
+          "type": "integer",
+          "description": "destination port of origin server"
+        },
+        "sslProtocol": {
+          "type": "string",
+          "description": "placeholder - not currently used"
+        },
+        "sslCipher": {
+          "type": "string",
+          "description": "placeholder - not currently used"
+        },
+        "cfRailgun": {
+          "type": "string",
+          "description": "when railgun is in use will contain connection-id, compression-ratio, origin-time, flags, version"
+        },
+        "railgunWanError": {
+          "type": "string",
+          "description": "railgun error messages"
+        },
+        "responseTime": {
+          "type": "integer",
+          "description": "origin response time in nanoseconds"
+        }
+      }
+    }
+  }
+}
