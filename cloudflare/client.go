@@ -59,32 +59,6 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 		c.debug = params["debug"].(bool)
 	}
 
-	if _, ok := params["exclude"]; ok {
-
-		conds := params["exclude"].(config.Conditions)
-
-		var orConds []config.Condition
-		if len(conds.Or) >= 1 {
-			for _, c := range conds.Or {
-				orConds = append(orConds, config.Condition{Query: c.Query, Value: c.Value})
-			}
-		}
-
-		var andConds []config.Condition
-		if len(conds.And) >= 1 {
-			for _, c := range conds.And {
-				andConds = append(andConds, config.Condition{Query: c.Query, Value: c.Value})
-			}
-		}
-
-		c.Exclude = config.Conditions{
-			Or:  orConds,
-			And: andConds,
-		}
-
-		logp.Info("DEBUG Exclude Conditions: %v", c.Exclude)
-	}
-
 	return c
 }
 
