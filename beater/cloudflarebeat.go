@@ -72,8 +72,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			timeStart = sf.GetLastEndTS() + 1       // last time start
 			timeEnd = sf.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
 		} else {
-			timeStart = (timeNow - (60 * 60 * 24 * 3)) // last 72 hours
-			timeEnd = timeNow - 1                      // to 1 second ago
+			timeStart = (timeNow - (60 * 30)) // last 30 minutes
+			timeEnd = timeNow - 1             // to 1 second ago
 		}
 
 		if bt.config.Debug {
@@ -85,19 +85,17 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			"zone_tag":   bt.config.ZoneTag,
 			"time_start": timeStart,
 			"time_end":   timeEnd,
+			//"count":      10,
 		})
 
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
 			sf.Update(map[string]interface{}{"last_request_ts": timeNow})
 		} else {
-			if bt.config.Debug {
-				logp.Info("Total Logs: %d", len(logs))
-			}
+
 			bt.client.PublishEvents(logs)
-			if bt.config.Debug {
-				logp.Info("Events sent")
-			}
+			logp.Info("Total events sent: %d", len(logs))
+
 			// Now need to update the disk-based state file that keeps track of the current state
 			sf.Update(map[string]interface{}{"last_start_ts": timeStart, "last_end_ts": timeEnd, "last_count": len(logs), "last_request_ts": timeNow})
 			if bt.config.Debug {

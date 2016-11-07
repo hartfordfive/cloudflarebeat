@@ -70,25 +70,27 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		if _, ok := params["ray_id"]; ok {
 			qsa.Set("start_id", params["ray_id"].(string))
 		}
-		if _, ok := params["end_timestamp"]; ok {
-			qsa.Set("end", params["end_timestamp"].(string))
+		if _, ok := params["time_end"]; ok {
+			qsa.Set("end", fmt.Sprintf("%d", params["time_end"].(int)))
 		}
 		if _, ok := params["count"]; ok {
-			qsa.Set("count", params["count"].(string))
+			qsa.Set("count", fmt.Sprintf("%d", params["count"].(int)))
 		}
 
 	} else if actionType == "get_range_from_timestamp" {
 
-		if _, ok := params["start_timestamp"]; ok {
-			qsa.Set("start", params["start_timestamp"].(string))
+		if _, ok := params["time_start"]; ok {
+			qsa.Set("start", fmt.Sprintf("%d", params["time_start"].(int)))
 		}
-		if _, ok := params["end_timestamp"]; ok {
-			qsa.Set("end", params["end_timestamp"].(string))
+		if _, ok := params["time_end"]; ok {
+			qsa.Set("end", fmt.Sprintf("%d", params["time_end"].(int)))
 		}
 		if _, ok := params["count"]; ok {
-			qsa.Set("count", params["count"].(string))
+			qsa.Set("count", fmt.Sprintf("%d", params["count"].(int)))
 		}
 	}
+
+	fmt.Printf("************* QSA: %v\n", qsa)
 
 	req := goreq.Request{
 		Uri:         url,
