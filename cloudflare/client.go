@@ -9,7 +9,6 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/franela/goreq"
-	"github.com/hartfordfive/cloudflarebeat/config"
 	"github.com/pquerna/ffjson/ffjson"
 )
 
@@ -25,7 +24,6 @@ type CloudflareClient struct {
 	ApiKey         string
 	Email          string
 	UserServiceKey string
-	Exclude        config.Conditions
 	methods        map[string][]string
 	debug          bool
 	counter        int64
@@ -35,9 +33,6 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 
 	c := &CloudflareClient{
 		methods: map[string][]string{
-			// Download a single log derived from the RayID
-			// /client/v4/zones/:zone_tag/logs/requests/:rayid
-			"get_single": {"GET", "/client/v4/zones/%s/logs/requests/%s"},
 			// Download logs starting from a RayID
 			// /client/v4/zones/:zone_tag/logs/requests?start_id=<rayid>[&end=<unix_ts>&count=<number>]
 			"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests?start_id=%s&end=%d&count=%d"},
@@ -65,9 +60,7 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) (*goreq.Response, error) {
 
 	url := API_BASE
-	if actionType == "get_single" {
-		url += fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string), params["rayid"].(string))
-	} else if actionType == "get_range_from_ray_id" {
+	if actionType == "get_range_from_ray_id" {
 		url += fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string), params["rayid"].(string), params["end_timestamp"].(int), params["count"].(int))
 	} else if actionType == "get_range_from_timestamp" {
 		url += fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string), params["start_timestamp"].(int), params["end_timestamp"].(int))
@@ -90,38 +83,16 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 
 	res, err := req.Do()
 
-	logp.Info("ERR: %v", err)
+	if err != nil {
+		logp.Err("%v", err)
+	}
 	return res, err
 
 }
 
 /*
-func (c *CloudflareClient) GetLog(zoneTag string, rayId string) {
-
-	response, errs := c.doRequest("get_single", map[string]interface{}{"zone_tag": zoneTag, "rayid": rayId})
-
-	fmt.Println("**************** DEBUG GetLog RESPONSE *****************")
-	fmt.Println("Response:\n---------------------\n")
-	fmt.Println(response)
-	fmt.Println("Body:\n---------------------\n")
-	fmt.Println(respBody)
-	fmt.Println("Errors:\n---------------------\n")
-	fmt.Println(errs)
-
-}
-
 func (c *CloudflareClient) GetLogRangeFromRayId(zoneTag string, rayId string) {
-
 	response, respBody, errs := c.doRequest("get_single", map[string]interface{}{"zone_tag": zoneTag, "rayid": rayId})
-
-	fmt.Println("**************** DEBUG GetLogRangeFromRayId RESPONSE *****************")
-	fmt.Println("Response:\n---------------------\n")
-	fmt.Println(response)
-	fmt.Println("Body:\n---------------------\n")
-	fmt.Println(respBody)
-	fmt.Println("Errors:\n---------------------\n")
-	fmt.Println(errs)
-
 }
 */
 
@@ -156,6 +127,10 @@ func (c *CloudflareClient) GetLogRangeFromTimestamp(zoneTag string, startTimesta
 
 	var ts float64
 	for _, logItem := range responseLines {
+
+		if strings.TrimSpace(logItem) == "" {
+			continue
+		}
 
 		var l common.MapStr
 		err := ffjson.Unmarshal([]byte(logItem), &l)

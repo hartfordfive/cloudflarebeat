@@ -48,6 +48,24 @@ To run Cloudflarebeat with debugging output enabled, run:
 ./cloudflarebeat -c cloudflarebeat.yml -e -d "*"
 ```
 
+For details of command line options, view the following links:
+
+- https://www.elastic.co/guide/en/beats/libbeat/master/config-file-format-cli.html
+- https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-command-line.html
+
+
+## Cloudflarebeat specific configuration options
+
+- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  (Default value is 1800s/30mins which is the default suggested by the Enterprise Log Share API documentation page.)
+- `cloudflarebeat.api_key` : The API key of the user account (mandatory)
+- `cloudflarebeat.email` : The email address of the user account (mandatory)
+- `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
+- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk`, `s3`, or `consul`, which keeps track of the current progress. (Defau)
+- `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
+- `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
+
+## Filtering out specific logs and/or log properties
+
 
 ### Test
 

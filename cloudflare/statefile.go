@@ -2,9 +2,12 @@ package cloudflare
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/elastic/beats/libbeat/logp"
 )
 
 type StateFile struct {
@@ -30,11 +33,12 @@ func NewStateFile(fileName string, storageType string) *StateFile {
 
 }
 
-func (s *StateFile) Initialize() {
+func (s *StateFile) Initialize() error {
 	// 2. If it doesn't exists, create it
 	if s.StorageType == "disk" {
-		s.loadFromDisk()
+		return s.loadFromDisk()
 	}
+	return errors.New("Unsupported storage type")
 }
 
 func (s *StateFile) loadFromDisk() error {
@@ -46,6 +50,7 @@ func (s *StateFile) loadFromDisk() error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// Now load the file in memory
@@ -56,14 +61,21 @@ func (s *StateFile) loadFromDisk() error {
 
 	var dat Properties
 	if err := json.Unmarshal(sfData, &dat); err != nil {
+		// If the state file isn't valid json, then re-create it
 		if err != nil {
-			return err
+			logp.Err("%s", err)
+			err = os.Remove(s.FileName)
+			var file, err = os.Create(s.FileName)
+			defer file.Close()
+			if err != nil {
+				return err
+			}
+			return nil
 		}
 	}
 
 	s.properties = dat
 
-	// Return any errors
 	return nil
 }
 

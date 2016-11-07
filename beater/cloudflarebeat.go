@@ -2,6 +2,7 @@ package beater
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -48,9 +49,14 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		"exclude": bt.config.Exclude,
 	})
 
-	sf := cloudflare.NewStateFile("cloudflarelogs.state", bt.config.StateFileStorageType)
-	logp.Info("Initializing state file 'cloudflarelogs.state' with storage type '" + bt.config.StateFileStorageType + "'")
-	sf.Initialize()
+	sf := cloudflare.NewStateFile("cloudflarebeat.state", bt.config.StateFileStorageType)
+	logp.Info("Initializing state file 'cloudflarebeats.state' with storage type '" + bt.config.StateFileStorageType + "'")
+	err := sf.Initialize()
+
+	if err != nil {
+		logp.Err("Could not load statefile: %s", err.Error())
+		os.Exit(1)
+	}
 
 	var timeStart, timeEnd, timeNow int
 
@@ -66,8 +72,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			timeStart = sf.GetLastEndTS() + 1       // last time start
 			timeEnd = sf.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
 		} else {
-			timeStart = (timeNow - (30 * 60)) // 30 minutes in the past
-			timeEnd = timeNow - 1             // to 1 second ago
+			timeStart = (timeNow - (30 * 60 * 24 * 3)) // last 72 hours
+			timeEnd = timeNow - 1                      // to 1 second ago
 		}
 
 		if bt.config.Debug {

@@ -4,13 +4,14 @@
 
 cloudflarebeat:
   # Defines how often an event is sent to the output
-  period: 5s
+  period: 1800s
   api_key: "abc123efg456hij789"
   email: "hartfordfive@example.com"
   zone_tag: "zone-tag-1"
   #state_file_storage_type: "s3"
   #aws_access_key: ""
   #aws_secret_access_key: ""
+  #debug: false
 
 #================================ General =====================================
 
