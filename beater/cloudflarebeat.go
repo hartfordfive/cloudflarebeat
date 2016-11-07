@@ -72,7 +72,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			timeStart = sf.GetLastEndTS() + 1       // last time start
 			timeEnd = sf.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
 		} else {
-			timeStart = (timeNow - (30 * 60 * 24 * 3)) // last 72 hours
+			timeStart = (timeNow - (60 * 60 * 24 * 3)) // last 72 hours
 			timeEnd = timeNow - 1                      // to 1 second ago
 		}
 
@@ -81,7 +81,12 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			logp.Info("  End Time: %s", time.Unix(int64(timeEnd), 0).Format(time.RFC3339))
 		}
 
-		logs, err := cc.GetLogRangeFromTimestamp(bt.config.ZoneTag, timeStart, timeEnd)
+		logs, err := cc.GetLogRangeFromTimestamp(map[string]interface{}{
+			"zone_tag":   bt.config.ZoneTag,
+			"time_start": timeStart,
+			"time_end":   timeEnd,
+		})
+
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
 			sf.Update(map[string]interface{}{"last_request_ts": timeNow})

@@ -3,6 +3,7 @@ package cloudflare
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -35,10 +36,12 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 		methods: map[string][]string{
 			// Download logs starting from a RayID
 			// /client/v4/zones/:zone_tag/logs/requests?start_id=<rayid>[&end=<unix_ts>&count=<number>]
-			"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests?start_id=%s&end=%d&count=%d"},
+			//"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests?start_id=%s&end=%d&count=%d"},
+			"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests"},
 			// Download logs starting from a specific timestamp
 			// /client/v4/zones/:zone_tag/logs/requests?start=<unix_ts>[&end=<unix_ts>&count=<number>]
-			"get_range_from_timestamp": {"GET", "/client/v4/zones/%s/logs/requests?start=%d&end=%d"},
+			//"get_range_from_timestamp": {"GET", "/client/v4/zones/%s/logs/requests?start=%d&end=%d"},
+			"get_range_from_timestamp": {"GET", "/client/v4/zones/%s/logs/requests"},
 		},
 		counter: 0,
 	}
@@ -59,11 +62,32 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 
 func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) (*goreq.Response, error) {
 
-	url := API_BASE
+	qsa := url.Values{}
+	url := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
+
 	if actionType == "get_range_from_ray_id" {
-		url += fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string), params["rayid"].(string), params["end_timestamp"].(int), params["count"].(int))
+
+		if _, ok := params["ray_id"]; ok {
+			qsa.Set("start_id", params["ray_id"].(string))
+		}
+		if _, ok := params["end_timestamp"]; ok {
+			qsa.Set("end", params["end_timestamp"].(string))
+		}
+		if _, ok := params["count"]; ok {
+			qsa.Set("count", params["count"].(string))
+		}
+
 	} else if actionType == "get_range_from_timestamp" {
-		url += fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string), params["start_timestamp"].(int), params["end_timestamp"].(int))
+
+		if _, ok := params["start_timestamp"]; ok {
+			qsa.Set("start", params["start_timestamp"].(string))
+		}
+		if _, ok := params["end_timestamp"]; ok {
+			qsa.Set("end", params["end_timestamp"].(string))
+		}
+		if _, ok := params["count"]; ok {
+			qsa.Set("count", params["count"].(string))
+		}
 	}
 
 	req := goreq.Request{
@@ -71,6 +95,7 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		Timeout:     60 * time.Second,
 		ShowDebug:   c.debug,
 		Compression: goreq.Gzip(),
+		QueryString: qsa,
 	}
 
 	req.AddHeader("Accept-encoding", "gzip")
@@ -96,15 +121,24 @@ func (c *CloudflareClient) GetLogRangeFromRayId(zoneTag string, rayId string) {
 }
 */
 
-func (c *CloudflareClient) GetLogRangeFromTimestamp(zoneTag string, startTimestamp int, timeEnd int) ([]common.MapStr, error) {
+//func (c *CloudflareClient) GetLogRangeFromTimestamp(zoneTag string, startTimestamp int, timeEnd int) ([]common.MapStr, error) {
+func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) ([]common.MapStr, error) {
 
 	var logs []common.MapStr
 
-	response, err := c.doRequest("get_range_from_timestamp", map[string]interface{}{
-		"zone_tag":        zoneTag,
-		"start_timestamp": startTimestamp,
-		"end_timestamp":   timeEnd,
-	})
+	/*
+		var options map[string]interface{}
+
+		options["zone_tag"] = zoneTag
+		options["start_timestamp"] = startTimestamp
+		options["end_timestamp"] = timeEnd
+
+		if _, ok := opts["count"]; ok {
+			options["count"] = opts["count"]
+		}
+	*/
+
+	response, err := c.doRequest("get_range_from_timestamp", opts)
 
 	responseBodyString, err := response.Body.ToString()
 
