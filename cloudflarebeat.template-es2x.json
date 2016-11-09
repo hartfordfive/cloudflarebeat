@@ -40,9 +40,154 @@
             }
           }
         },
-        "counter": {
-          "type": "long"
+        "brandId": {
+          "type": "long", "index":"not_analyzed"
         },
+        "cache": {
+          "properties": {
+            "bckType": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
+            "cacheExternalIp": {"type": "ip"},
+            "cacheExternalPort": {"type": "integer"},
+            "cacheInternalIp": {"type": "ip"},
+            "cacheServerName": {"type": "string", "ignore_above": 256},
+            "cacheStatus": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
+            "cacheTokens": {"type": "integer"},
+            "endTimestamp": {"type": "long"},
+            "startTimestamp": {"type": "long"}
+          }
+        },
+        "cacheRequest": {
+          "properties": {
+            "headers": {"type": "nested"},
+            "keepaliveStatus": {"type": "string", "index":"not_analyzed", "ignore_above": 256}
+          }
+        },
+        "cacheResponse": {
+          "properties": {
+            "bodyBytes": {"type": "long"},
+            "bytes": {"type": "long"},
+            "contentType": {"type": "string", "ignore_above": 256},
+            "retriedStatus": {"type": "integer"},
+            "status": {"type": "integer"}
+          }
+        },
+        "client": {
+          "properties": {
+            "asNum": {"type": "integer"},
+            "country": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+            "deviceType": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+            "ip": {"type": "ip"},
+            "ipClass": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+            "srcPort": {"type": "integer"},
+            "sslCipher": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "sslFlags": {"type": "integer"},
+            "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
+          }
+        },
+
+
+        "clientRequest": {
+          "properties": {
+            "accept": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+            "bodyBytes": {"type": "long"},
+            "bytes": {"type": "long"},
+            "cookies": {"type": "nested"},
+            "flags": {"type": "integer"},
+            "headers": {"type": "nested"},
+            "httpHost": {"type": "string", "ignore_above": 256},
+            "httpMethod": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "httpProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "sslClientHello": {
+              "properties": {
+                "cipherSuites": {"type": "integer"},
+                "compression": {"type": "integer"},
+                "extensions": {"type": "nested"},
+                "random": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+                "sessionId": {"type": "string", "index": "not_analyzed", "ignore_above": 512},
+                "version": {"type": "integer"}
+              }
+            },
+            "sslConnectionId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "uri": {"type": "string", "ignore_above": 1024},
+            "userAgent": {"type": "string", "ignore_above": 1024}
+          }
+        },
+
+
+        "counter": {"type": "long"},
+        "edge": {
+          "properties": {
+            "bbResult": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "cacheResponseTime": {"type": "long"},
+            "colo": {"type": "integer"},
+            "enabledFlags": {"type": "integer"},
+            "endTimestamp": {"type": "long"},
+            "flServerIp": {"type": "ip"},
+            "flServerName": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "flServerPort": {"type": "integer"},
+            "pathingOp": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "pathingSrc": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "pathingStatus": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "rateLimitRuleId": {"type": "integer"},
+            "startTimestamp": {"type": "long"},
+            "usedFlags": {"type": "integer"}
+          }
+        },
+        "edgeRequest": {
+          "properties": {
+            "bodyBytes": {"type": "long"},
+            "bytes": {"type": "long"},
+            "headers": {"type": "nested"},
+            "httpHost": {"type": "string", "ignore_above": 256},
+            "httpMethod": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "keepaliveStatus": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "uri": {"type": "string", "ignore_above": 1024}
+          }
+        },
+        "edgeResponse": {
+          "properties": {
+            "bodyBytes": {"type": "long"},
+            "bytes": {"type": "long"},
+            "compressionRatio": {"type": "integer"},
+            "contentType": {"type": "string", "ignore_above": 256},
+            "headers": {"type": "nested"},
+            "setCookies": {"type": "nested"},
+            "status": {"type": "integer"}
+          }
+        },
+        "flags": {"type": "integer"},
+        "hosterId": {"type": "integer"},
+        "origin": {
+          "properties": {
+            "asNum": {"type": "integer"},
+            "ip": {"type": "ip"},
+            "port": {"type": "integer"},
+            "responseTime": {"type": "integer"},
+            "sslCipher": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+            "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
+          }
+        },
+        "originResponse": {
+          "properties": {
+            "bodyBytes": {"type": "long"},
+            "bytes": {"type": "long"},
+            "flags": {"type": "integer"},
+            "headers": {"type": "nested"},
+            "httpExpires": {"type": "long"},
+            "httpLastModified": {"type": "long"},
+            "status": {"type": "integer"}
+          }
+        },
+        "ownerId": {"type": "long"},
+        "rayId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+        "securityLevel": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+        "timestamp": {"type": "long"},
+        "type": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+        "unstable": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+        "zoneId": {"type": "integer"},
+        "zoneName": {"type": "string", "ignore_above": 256},
+        "zonePlan": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+
         "tags": {
           "ignore_above": 1024,
           "index": "not_analyzed",
@@ -53,7 +198,7 @@
   },
   "order": 0,
   "settings": {
-    "index.refresh_interval": "5s"
+    "index.refresh_interval": "30s"
   },
   "template": "cloudflarebeat-*"
 }

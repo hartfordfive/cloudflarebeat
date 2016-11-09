@@ -87,7 +87,8 @@ func (s *StateFile) loadFromConsul(filePath string) {
 	// TODO
 }
 
-func (s *StateFile) Update(properties map[string]interface{}) {
+/*
+func (s *StateFile) Update() {
 
 	// Update the properties in the local in-memory struct
 	if _, ok := properties["last_start_ts"]; ok {
@@ -106,6 +107,7 @@ func (s *StateFile) Update(properties map[string]interface{}) {
 	// Persist the state in a background routine
 	go s.save()
 }
+*/
 
 func (s *StateFile) GetLastStartTS() int {
 	return s.properties.LastStartTS
@@ -123,7 +125,25 @@ func (s *StateFile) GetLastRequestTS() int {
 	return s.properties.LastRequestTS
 }
 
-func (s *StateFile) save() error {
+func (s *StateFile) UpdateLastStartTS(ts int) {
+	s.properties.LastStartTS = ts
+}
+
+func (s *StateFile) UpdateLastEndTS(ts int) {
+	s.properties.LastEndTS = ts
+}
+
+func (s *StateFile) UpdateLastCount(count int) {
+	s.properties.LastCount = count
+}
+
+func (s *StateFile) UpdateLastRequestTS(ts int) {
+	s.properties.LastRequestTS = ts
+}
+
+func (s *StateFile) Save() error {
+
+	s.lastUpdated = time.Now()
 
 	// open file using READ & WRITE permission
 	var file, err = os.OpenFile(s.FileName, os.O_RDWR, 0644)

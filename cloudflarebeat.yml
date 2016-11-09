@@ -43,6 +43,8 @@ output.elasticsearch:
   #username: "elastic"
   #password: "changeme"
 
+  # Would set the following option to false if you want to customize your own template
+  #template.enabled: true 
 #----------------------------- Logstash output --------------------------------
 #output.logstash:
   # The Logstash hosts

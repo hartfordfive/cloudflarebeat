@@ -58,6 +58,9 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		os.Exit(1)
 	}
 
+	//logp.Info("Last End Date: %d", sf.GetLastEndTS())
+	//logp.Info("Last End Timestamp: %s", time.Unix(int64(sf.GetLastEndTS()), 0).Format(time.RFC3339))
+
 	var timeStart, timeEnd, timeNow int
 
 	for {
@@ -68,12 +71,13 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		}
 
 		timeNow = int(time.Now().UTC().Unix())
+
 		if sf.GetLastStartTS() != 0 {
 			timeStart = sf.GetLastEndTS() + 1       // last time start
 			timeEnd = sf.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
 		} else {
-			timeStart = (timeNow - (60 * 30)) // last 30 minutes
-			timeEnd = timeNow - 1             // to 1 second ago
+			timeStart = timeNow - (30 * 60) // last end TS as per statefile
+			timeEnd = timeNow               // to 1 second ago
 		}
 
 		if bt.config.Debug {
@@ -90,14 +94,25 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
-			sf.Update(map[string]interface{}{"last_request_ts": timeNow})
+			sf.UpdateLastRequestTS(timeNow)
+			err := sf.Save()
+			if err != nil {
+				logp.Err("Could not save state file: %s", err.Error())
+			}
 		} else {
-
 			bt.client.PublishEvents(logs)
 			logp.Info("Total events sent: %d", len(logs))
-
 			// Now need to update the disk-based state file that keeps track of the current state
-			sf.Update(map[string]interface{}{"last_start_ts": timeStart, "last_end_ts": timeEnd, "last_count": len(logs), "last_request_ts": timeNow})
+			sf.UpdateLastStartTS(timeStart)
+			sf.UpdateLastEndTS(timeEnd)
+			sf.UpdateLastCount(len(logs))
+			sf.UpdateLastRequestTS(timeNow)
+
+			err := sf.Save()
+			if err != nil {
+				logp.Err("Could not persist state file to storage: %s", err.Error())
+			}
+
 			if bt.config.Debug {
 				logp.Info("Updating state file")
 			}

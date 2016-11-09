@@ -60,7 +60,9 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 	return c
 }
 
-func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) (*goreq.Response, error) {
+func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) ([]common.MapStr, error) {
+
+	var logs []common.MapStr
 
 	qsa := url.Values{}
 	url := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
@@ -90,8 +92,6 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		}
 	}
 
-	fmt.Printf("************* QSA: %v\n", qsa)
-
 	req := goreq.Request{
 		Uri:         url,
 		Timeout:     60 * time.Second,
@@ -108,49 +108,12 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		req.AddHeader("X-Auth-Email", c.Email)
 	}
 
-	res, err := req.Do()
-
+	response, err := req.Do()
 	if err != nil {
-		logp.Err("%v", err)
+		return logs, err
 	}
-	return res, err
-
-}
-
-/*
-func (c *CloudflareClient) GetLogRangeFromRayId(zoneTag string, rayId string) {
-	response, respBody, errs := c.doRequest("get_single", map[string]interface{}{"zone_tag": zoneTag, "rayid": rayId})
-}
-*/
-
-//func (c *CloudflareClient) GetLogRangeFromTimestamp(zoneTag string, startTimestamp int, timeEnd int) ([]common.MapStr, error) {
-func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) ([]common.MapStr, error) {
-
-	var logs []common.MapStr
-
-	/*
-		var options map[string]interface{}
-
-		options["zone_tag"] = zoneTag
-		options["start_timestamp"] = startTimestamp
-		options["end_timestamp"] = timeEnd
-
-		if _, ok := opts["count"]; ok {
-			options["count"] = opts["count"]
-		}
-	*/
-
-	response, err := c.doRequest("get_range_from_timestamp", opts)
 
 	responseBodyString, err := response.Body.ToString()
-
-	/*
-		res.Uri // return final URL location of the response (fulfilled after redirect was made)
-		res.StatusCode // return the status code of the response
-		res.Body // gives you access to the body
-		res.Body.ToString() // will return the body as a string
-		res.Header.Get("Content-Type") //
-	*/
 
 	if err != nil {
 		return logs, err
@@ -177,6 +140,7 @@ func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{})
 			l["@timestamp"] = common.Time(time.Unix(0, int64(ts)).UTC())
 			l["type"] = "cloudflare"
 			l["counter"] = c.counter
+			logp.Info("Event #%d: %v", c.counter, l)
 			logs = append(logs, l)
 		} else {
 			logp.Err("Could not load JSON: %s", err)
@@ -185,4 +149,17 @@ func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{})
 	} // END of range responseLines
 
 	return logs, nil
+}
+
+/*
+func (c *CloudflareClient) GetLogRangeFromRayId(zoneTag string, rayId string) {
+	response, respBody, errs := c.doRequest("get_single", map[string]interface{}{"zone_tag": zoneTag, "rayid": rayId})
+}
+*/
+
+func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) ([]common.MapStr, error) {
+
+	//var logs []common.MapStr
+	return c.doRequest("get_range_from_timestamp", opts)
+
 }
