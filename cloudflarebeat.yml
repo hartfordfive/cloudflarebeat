@@ -60,6 +60,17 @@ output.elasticsearch:
   # Client Certificate Key
   #ssl.key: "/etc/pki/client/cert.key"
 
+#================================ Processors =====================================
+# The following processor 'drop_field' config is necessary in order to avoid mapping errors when 
+# the cache.cacheExternalIp field is an empty string ""
+processors:
+ - drop_fields:
+     when:
+       and:
+         - equals:
+             cache.cacheExternalIp: ""
+     fields: ["cache.cacheExternalIp"]
+
 #================================ Logging =====================================
 
 # Sets log level. The default log level is info.

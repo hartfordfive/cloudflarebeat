@@ -125,13 +125,14 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 	responseLines := strings.Split(responseBodyString, "\n")
 
 	var ts float64
+	var l common.MapStr
+
 	for _, logItem := range responseLines {
 
 		if strings.TrimSpace(logItem) == "" {
 			continue
 		}
 
-		var l common.MapStr
 		err := ffjson.Unmarshal([]byte(logItem), &l)
 
 		if err == nil {
@@ -140,7 +141,19 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 			l["@timestamp"] = common.Time(time.Unix(0, int64(ts)).UTC())
 			l["type"] = "cloudflare"
 			l["counter"] = c.counter
-			logp.Info("Event #%d: %v", c.counter, l)
+			//logp.Info("Event #%d: %v", c.counter, l)
+
+			/*
+				c, _ := l.GetValue("cache")
+				resip := c.(map[string]interface{})["cacheExternalIp"]
+				logp.Info("Value of 'cache': %v", resip)
+			*/
+			/*
+				if l["cache"].(interface{})["cacheExternalIp"].(string) == "" {
+					delete(l["cache"], "cacheExternalIp")
+				}
+			*/
+
 			logs = append(logs, l)
 		} else {
 			logp.Err("Could not load JSON: %s", err)

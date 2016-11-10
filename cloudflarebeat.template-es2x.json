@@ -52,8 +52,8 @@
             "cacheServerName": {"type": "string", "ignore_above": 256},
             "cacheStatus": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
             "cacheTokens": {"type": "integer"},
-            "endTimestamp": {"type": "long"},
-            "startTimestamp": {"type": "long"}
+            "endTimestamp": {"type": "date", "format": "epoch_millis"},
+            "startTimestamp": {"type": "date", "format": "epoch_millis"}
           }
         },
         "cacheRequest": {
@@ -121,7 +121,7 @@
             "cacheResponseTime": {"type": "long"},
             "colo": {"type": "integer"},
             "enabledFlags": {"type": "integer"},
-            "endTimestamp": {"type": "long"},
+            "endTimestamp": {"type": "date", "format": "epoch_millis"},
             "flServerIp": {"type": "ip"},
             "flServerName": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "flServerPort": {"type": "integer"},
@@ -129,7 +129,7 @@
             "pathingSrc": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "pathingStatus": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "rateLimitRuleId": {"type": "integer"},
-            "startTimestamp": {"type": "long"},
+            "startTimestamp": {"type": "date", "format": "epoch_millis"},
             "usedFlags": {"type": "integer"}
           }
         },
@@ -181,7 +181,7 @@
         "ownerId": {"type": "long"},
         "rayId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "securityLevel": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
-        "timestamp": {"type": "long"},
+        "timestamp": {"type": "date", "format": "epoch_millis"},
         "type": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "unstable": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "zoneId": {"type": "integer"},

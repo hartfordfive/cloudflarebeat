@@ -64,6 +64,7 @@ func (s *StateFile) loadFromDisk() error {
 		// If the state file isn't valid json, then re-create it
 		if err != nil {
 			logp.Err("%s", err)
+			logp.Info("State file contents: %s", string(sfData))
 			err = os.Remove(s.FileName)
 			var file, err = os.Create(s.FileName)
 			defer file.Close()

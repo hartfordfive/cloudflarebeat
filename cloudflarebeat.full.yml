@@ -69,7 +69,16 @@ cloudflarebeat:
 # that have a zonePlane of "test" and a zoneName of "yourzonename.com"
 # Refere to this link for more details: https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html
 #
-#processors:
+
+# The following processor 'drop_field' config is necessary in order to avoid mapping errors when 
+# the cache.cacheExternalIp field is an empty string ""
+processors:
+ - drop_fields:
+     when:
+       and:
+         - equals:
+             cache.cacheExternalIp: ""
+     fields: ["cache.cacheExternalIp"]
 #- drop_event:
 #    when:
 #      and:
@@ -77,8 +86,6 @@ cloudflarebeat:
 #         zonePlan: "test"
 #      - equals:
 #         zoneName: "yourzonename.com"
-#
-
 #================================ Outputs =====================================
 
 # Configure what outputs to use when sending the data collected by the beat.
