@@ -58,8 +58,10 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		os.Exit(1)
 	}
 
-	//logp.Info("Last End Date: %d", sf.GetLastEndTS())
-	//logp.Info("Last End Timestamp: %s", time.Unix(int64(sf.GetLastEndTS()), 0).Format(time.RFC3339))
+	if sf.GetLastStartTS() != 0 {
+		logp.Info("Start time loaded from state file: %s", time.Unix(int64(sf.GetLastStartTS()), 0).Format(time.RFC3339))
+		logp.Info("  End time loaded from state file: %s", time.Unix(int64(sf.GetLastEndTS()), 0).Format(time.RFC3339))
+	}
 
 	var timeStart, timeEnd, timeNow int
 
@@ -80,10 +82,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			timeEnd = timeNow               // to 1 second ago
 		}
 
-		if bt.config.Debug {
-			logp.Info("Start Time: %s", time.Unix(int64(timeStart), 0).Format(time.RFC3339))
-			logp.Info("  End Time: %s", time.Unix(int64(timeEnd), 0).Format(time.RFC3339))
-		}
+		logp.Info("Next request start time: %s", time.Unix(int64(timeStart), 0).Format(time.RFC3339))
+		logp.Info("  Next request end Time: %s", time.Unix(int64(timeEnd), 0).Format(time.RFC3339))
 
 		logs, err := cc.GetLogRangeFromTimestamp(map[string]interface{}{
 			"zone_tag":   bt.config.ZoneTag,
@@ -95,27 +95,19 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
 			sf.UpdateLastRequestTS(timeNow)
-			err := sf.Save()
-			if err != nil {
-				logp.Err("Could not save state file: %s", err.Error())
-			}
 		} else {
 			bt.client.PublishEvents(logs)
-			logp.Info("Total events sent: %d", len(logs))
+			logp.Info("Total events sent this period: %d", len(logs))
 			// Now need to update the disk-based state file that keeps track of the current state
 			sf.UpdateLastStartTS(timeStart)
 			sf.UpdateLastEndTS(timeEnd)
 			sf.UpdateLastCount(len(logs))
 			sf.UpdateLastRequestTS(timeNow)
+		}
 
-			err := sf.Save()
-			if err != nil {
-				logp.Err("Could not persist state file to storage: %s", err.Error())
-			}
-
-			if bt.config.Debug {
-				logp.Info("Updating state file")
-			}
+		err = sf.Save()
+		if err != nil {
+			logp.Err("Could not persist state file to storage: %s", err.Error())
 		}
 
 		counter++

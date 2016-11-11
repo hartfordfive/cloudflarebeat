@@ -28,6 +28,7 @@ cloudflarebeat:
 #fields:
 #  env: staging
 
+
 #================================ Outputs =====================================
 
 # Configure what outputs to use when sending the data collected by the beat.

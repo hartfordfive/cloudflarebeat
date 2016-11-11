@@ -66,7 +66,17 @@
           "properties": {
             "bodyBytes": {"type": "long"},
             "bytes": {"type": "long"},
-            "contentType": {"type": "string", "ignore_above": 256},
+            "contentType": {
+              "type": "string", 
+              "ignore_above": 256,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 256
+                }
+              }
+            },
             "retriedStatus": {"type": "integer"},
             "status": {"type": "integer"}
           }
@@ -94,7 +104,17 @@
             "cookies": {"type": "nested"},
             "flags": {"type": "integer"},
             "headers": {"type": "nested"},
-            "httpHost": {"type": "string", "ignore_above": 256},
+            "httpHost": {
+              "type": "string", 
+              "ignore_above": 256,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 256
+                }
+              }
+            },
             "httpMethod": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "httpProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "sslClientHello": {
@@ -108,8 +128,28 @@
               }
             },
             "sslConnectionId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
-            "uri": {"type": "string", "ignore_above": 1024},
-            "userAgent": {"type": "string", "ignore_above": 1024}
+            "uri": {
+              "type": "string", 
+              "ignore_above": 1024,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 1024
+                }
+              }
+            },
+            "userAgent": {
+              "type": "string", 
+              "ignore_above": 1024,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 1024
+                }
+              }
+            }
           }
         },
 
@@ -138,10 +178,30 @@
             "bodyBytes": {"type": "long"},
             "bytes": {"type": "long"},
             "headers": {"type": "nested"},
-            "httpHost": {"type": "string", "ignore_above": 256},
+            "httpHost": {
+              "type": "string", 
+              "ignore_above": 256,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 1024
+                }
+              }
+            },
             "httpMethod": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "keepaliveStatus": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
-            "uri": {"type": "string", "ignore_above": 1024}
+            "uri": {
+              "type": "string", 
+              "ignore_above": 1024,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 1024
+                }
+              }
+            }
           }
         },
         "edgeResponse": {
@@ -149,7 +209,17 @@
             "bodyBytes": {"type": "long"},
             "bytes": {"type": "long"},
             "compressionRatio": {"type": "integer"},
-            "contentType": {"type": "string", "ignore_above": 256},
+            "contentType": {
+              "type": "string",
+              "ignore_above": 256,
+              "fields": {
+                "raw": {
+                  "index": "not_analyzed",
+                  "type": "string",
+                  "ignore_above": 1024
+                }
+              }
+            },
             "headers": {"type": "nested"},
             "setCookies": {"type": "nested"},
             "status": {"type": "integer"}
@@ -162,7 +232,7 @@
             "asNum": {"type": "integer"},
             "ip": {"type": "ip"},
             "port": {"type": "integer"},
-            "responseTime": {"type": "integer"},
+            "responseTime": {"type": "long"},
             "sslCipher": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
           }
@@ -185,9 +255,18 @@
         "type": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "unstable": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "zoneId": {"type": "integer"},
-        "zoneName": {"type": "string", "ignore_above": 256},
+        "zoneName": {
+          "type": "string", 
+          "ignore_above": 256,
+          "fields": {
+            "raw": {
+              "index": "not_analyzed",
+              "type": "string",
+              "ignore_above": 1024
+            }
+          }
+        },
         "zonePlan": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
-
         "tags": {
           "ignore_above": 1024,
           "index": "not_analyzed",

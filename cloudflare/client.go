@@ -124,7 +124,7 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 	// Split the response body into individual lines
 	responseLines := strings.Split(responseBodyString, "\n")
 
-	var ts float64
+	//var ts float64
 	var l common.MapStr
 
 	for _, logItem := range responseLines {
@@ -137,22 +137,45 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 
 		if err == nil {
 			c.counter++
-			ts = l["timestamp"].(float64)
-			l["@timestamp"] = common.Time(time.Unix(0, int64(ts)).UTC())
+			ts, err := l.GetValue("timestamp")
+			if err == nil {
+				l["timestamp"] = int64(ts.(float64)) / 1000000
+			}
+			l["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))).UTC())
 			l["type"] = "cloudflare"
 			l["counter"] = c.counter
-			//logp.Info("Event #%d: %v", c.counter, l)
 
-			/*
-				c, _ := l.GetValue("cache")
-				resip := c.(map[string]interface{})["cacheExternalIp"]
-				logp.Info("Value of 'cache': %v", resip)
-			*/
-			/*
-				if l["cache"].(interface{})["cacheExternalIp"].(string) == "" {
-					delete(l["cache"], "cacheExternalIp")
-				}
-			*/
+			/**********************************************************************************
+				Now fix all the nanosecond timestamps and convert them to millisecond timestamps
+				as Elasticsearch doesn't support nanoseconds
+			**********************************************************************************/
+			edge, err := l.GetValue("edge")
+			if err == nil {
+				ns := edge.(map[string]interface{})["startTimestamp"].(float64)
+				l["edge"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
+				ns = edge.(map[string]interface{})["endTimestamp"].(float64)
+				l["edge"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+			}
+			cache, err := l.GetValue("cache")
+			if err == nil {
+				ns := cache.(map[string]interface{})["startTimestamp"].(float64)
+				l["cache"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
+				ns = cache.(map[string]interface{})["endTimestamp"].(float64)
+				l["cache"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+			}
+			waf, err := l.GetValue("waf")
+			if err == nil {
+				ns := waf.(map[string]interface{})["timestampStart"].(float64)
+				l["waf"].(map[string]interface{})["timestampStart"] = int64(ns) / 1000000
+				ns = waf.(map[string]interface{})["timestampEnd"].(float64)
+				l["waf"].(map[string]interface{})["timestampEnd"] = int64(ns) / 1000000
+			}
+			or, err := l.GetValue("originResponse")
+			if err == nil {
+				ns := or.(map[string]interface{})["httpExpires"].(float64)
+				l["originResponse"].(map[string]interface{})["httpExpires"] = int64(ns) / 1000000
+
+			}
 
 			logs = append(logs, l)
 		} else {
