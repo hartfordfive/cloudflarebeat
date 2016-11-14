@@ -8,16 +8,17 @@ Ensure that this folder is at the following location:
 
 ## Disclaimer
 
-Considering this is currently in beta, it may have bugs and likely various optimizations that can be made.
+Cloudflarebeat is currently in beta.  It may have bugs and likely various optimizations that can be made.
 If you find any of these, please create an issue or even a pull request if you're familiar with development for beats library.
+
 
 ## Getting Started with Cloudflarebeat
 
 ### Requirements
 
 * [Golang](https://golang.org/dl/) 1.7
-* github.com/franela/goreq
-*	github.com/pquerna/ffjson/ffjson
+* [goreq](https://github.com/franela/goreq)
+* [ffjson](https://github.com/pquerna/ffjson/ffjson)
 
 
 ### Init Project
@@ -109,6 +110,7 @@ Below is a sample of what the policy file would look like for the S3 storage.  P
 
 ## Filtering out specific logs and/or log properties
 
+Please read the beats [documentation regarding processors](https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html).  This will allow you to filter events by field values or even remove event fields.
 
 ### Test
 

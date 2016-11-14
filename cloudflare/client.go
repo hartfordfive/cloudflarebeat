@@ -135,6 +135,8 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 
 		err := ffjson.Unmarshal([]byte(logItem), &l)
 
+		logp.Info("LOG Pre-update: %v", l)
+
 		if err == nil {
 			c.counter++
 			ts, err := l.GetValue("timestamp")
@@ -145,37 +147,79 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 			l["type"] = "cloudflare"
 			l["counter"] = c.counter
 
-			logp.Info("LOG %v", l)
-
 			/**********************************************************************************
 				Now fix all the nanosecond timestamps and convert them to millisecond timestamps
 				as Elasticsearch doesn't support nanoseconds
 			**********************************************************************************/
 			edge, err := l.GetValue("edge")
 			if err == nil {
-				ns := edge.(map[string]interface{})["startTimestamp"].(float64)
-				l["edge"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
-				ns = edge.(map[string]interface{})["endTimestamp"].(float64)
-				l["edge"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+				switch edge.(map[string]interface{})["startTimestamp"].(type) {
+				case int64:
+					ns := edge.(map[string]interface{})["startTimestamp"].(int64)
+					l["edge"].(map[string]interface{})["startTimestamp"] = ns / 1000000
+				case float64:
+					ns := edge.(map[string]interface{})["startTimestamp"].(float64)
+					l["edge"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
+				}
+				switch edge.(map[string]interface{})["endTimestamp"].(type) {
+				case int64:
+					ns := edge.(map[string]interface{})["endTimestamp"].(int64)
+					l["edge"].(map[string]interface{})["endTimestamp"] = ns / 1000000
+				case float64:
+					ns := edge.(map[string]interface{})["endTimestamp"].(float64)
+					l["edge"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+				}
 			}
 			cache, err := l.GetValue("cache")
 			if err == nil {
-				ns := cache.(map[string]interface{})["startTimestamp"].(float64)
-				l["cache"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
-				ns = cache.(map[string]interface{})["endTimestamp"].(float64)
-				l["cache"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+				switch cache.(map[string]interface{})["startTimestamp"].(type) {
+				case int64:
+					ns := cache.(map[string]interface{})["startTimestamp"].(int64)
+					l["cache"].(map[string]interface{})["startTimestamp"] = ns / 1000000
+				case float64:
+					ns := cache.(map[string]interface{})["startTimestamp"].(float64)
+					l["cache"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
+				}
+				switch cache.(map[string]interface{})["endTimestamp"].(type) {
+				case int64:
+					ns := cache.(map[string]interface{})["endTimestamp"].(int64)
+					l["cache"].(map[string]interface{})["endTimestamp"] = ns / 1000000
+				case float64:
+					ns := cache.(map[string]interface{})["endTimestamp"].(float64)
+					l["cache"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
+				}
 			}
+
 			waf, err := l.GetValue("waf")
 			if err == nil {
-				ns := waf.(map[string]interface{})["timestampStart"].(float64)
-				l["waf"].(map[string]interface{})["timestampStart"] = int64(ns) / 1000000
-				ns = waf.(map[string]interface{})["timestampEnd"].(float64)
-				l["waf"].(map[string]interface{})["timestampEnd"] = int64(ns) / 1000000
+				switch waf.(map[string]interface{})["timestampStart"].(type) {
+				case int64:
+					ns := waf.(map[string]interface{})["timestampStart"].(int64)
+					l["waf"].(map[string]interface{})["timestampStart"] = ns / 1000000
+				case float64:
+					ns := waf.(map[string]interface{})["timestampStart"].(float64)
+					l["waf"].(map[string]interface{})["timestampStart"] = int64(ns) / 1000000
+				}
+				switch waf.(map[string]interface{})["timestampEnd"].(type) {
+				case int64:
+					ns := waf.(map[string]interface{})["timestampEnd"].(int64)
+					l["waf"].(map[string]interface{})["timestampEnd"] = ns / 1000000
+				case float64:
+					ns := waf.(map[string]interface{})["timestampEnd"].(float64)
+					l["waf"].(map[string]interface{})["timestampEnd"] = int64(ns) / 1000000
+				}
 			}
+
 			or, err := l.GetValue("originResponse")
 			if err == nil {
-				ns := or.(map[string]interface{})["httpExpires"].(float64)
-				l["originResponse"].(map[string]interface{})["httpExpires"] = int64(ns) / 1000000
+				switch or.(map[string]interface{})["httpExpires"].(type) {
+				case int64:
+					ns := or.(map[string]interface{})["httpExpires"].(int64)
+					l["originResponse"].(map[string]interface{})["httpExpires"] = ns / 1000000
+				case float64:
+					ns := or.(map[string]interface{})["httpExpires"].(float64)
+					l["originResponse"].(map[string]interface{})["httpExpires"] = int64(ns) / 1000000
+				}
 
 			}
 
