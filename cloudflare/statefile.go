@@ -1,13 +1,23 @@
 package cloudflare
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/elastic/beats/libbeat/logp"
+)
+
+const (
+	FETCH_PERIOD_SECONDS = 1800
 )
 
 type StateFile struct {
@@ -15,6 +25,7 @@ type StateFile struct {
 	StorageType string
 	properties  Properties
 	lastUpdated time.Time
+	s3settings  *awsS3Settings
 }
 
 type Properties struct {
@@ -24,21 +35,56 @@ type Properties struct {
 	LastRequestTS int `json:"last_request_ts"`
 }
 
-func NewStateFile(fileName string, storageType string) *StateFile {
-
-	return &StateFile{
-		FileName:    fileName,
-		StorageType: storageType,
-	}
-
+type awsS3Settings struct {
+	awsAccesKey        string
+	awsSecretAccessKey string
+	s3BucketName       string
 }
 
-func (s *StateFile) Initialize() error {
+func (p *Properties) ToJsonBytes() []byte {
+	b, _ := json.Marshal(p)
+	return b
+}
+
+func NewStateFile(config map[string]string) (*StateFile, error) {
+
+	sf := &StateFile{
+		FileName:    config["filename"],
+		StorageType: config["storage_type"],
+	}
+
+	if sf.StorageType == "s3" {
+		if _, ok := config["aws_access_key"]; !ok {
+			return nil, errors.New("Must specify aws_access_key when using S3 storage.")
+		}
+		if _, ok := config["aws_secret_access_key"]; !ok {
+			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
+		}
+		if _, ok := config["aws_s3_bucket_name"]; !ok {
+			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
+		}
+		sf.s3settings = &awsS3Settings{config["aws_access_key"], config["aws_secret_access_key"], config["aws_s3_bucket_name"]}
+	}
+	sf.initialize()
+	return sf, nil
+}
+
+func (s *StateFile) initialize() error {
 	// 2. If it doesn't exists, create it
+	logp.Info("Initializing state file '%s' with storage type '%s'", s.FileName, s.StorageType)
+
 	if s.StorageType == "disk" {
 		return s.loadFromDisk()
+	} else if s.StorageType == "s3" {
+		return s.loadFromS3()
 	}
+
 	return errors.New("Unsupported storage type")
+}
+
+func (s *StateFile) initializeStateFileValues() {
+	s.properties.LastStartTS = int(time.Now().UTC().Unix()) - FETCH_PERIOD_SECONDS - 1
+	s.properties.LastEndTS = int(time.Now().UTC().Unix())
 }
 
 func (s *StateFile) loadFromDisk() error {
@@ -50,6 +96,7 @@ func (s *StateFile) loadFromDisk() error {
 		if err != nil {
 			return err
 		}
+		s.initializeStateFileValues()
 		return nil
 	}
 
@@ -80,35 +127,39 @@ func (s *StateFile) loadFromDisk() error {
 	return nil
 }
 
-func (s *StateFile) loadFromS3(bucketName string, fileName string, AWSAccessKey string, AWSSecretKey string) {
-	// TODO
-}
+func (s *StateFile) loadFromS3() error {
 
-func (s *StateFile) loadFromConsul(filePath string) {
-	// TODO
-}
+	svc, err := s.getAwsSession()
+	if err != nil {
+		return err
+	}
 
-/*
-func (s *StateFile) Update() {
+	// 1. Check if the file exists and if not, create it
+	// 2. Otherwise, fetch the object's contents, and store it in the local state instance
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(s.s3settings.s3BucketName),
+		Key:    aws.String(s.FileName),
+	}
+	resp, err := svc.GetObject(params)
 
-	// Update the properties in the local in-memory struct
-	if _, ok := properties["last_start_ts"]; ok {
-		s.properties.LastStartTS = properties["last_start_ts"].(int)
+	if err != nil && err.Error() == "NoSuchKey: The specified key does not exist." {
+		// Create the file here as it doesn't exist
+		s.initializeStateFileValues()
+		//s.writeToS3(svc)
+		return err
+	} else if err != nil {
+		return err
 	}
-	if _, ok := properties["last_end_ts"]; ok {
-		s.properties.LastEndTS = properties["last_end_ts"].(int)
+
+	// File was successfully loaded.  Unmarshall into state attribute
+	var p Properties
+	if err := json.Unmarshal([]byte(fmt.Sprint(resp)), &p); err != nil {
+		return err
 	}
-	if _, ok := properties["last_count"]; ok {
-		s.properties.LastCount = properties["last_count"].(int)
-	}
-	if _, ok := properties["last_request_ts"]; ok {
-		s.properties.LastRequestTS = properties["last_request_ts"].(int)
-	}
-	s.lastUpdated = time.Now()
-	// Persist the state in a background routine
-	go s.save()
+
+	s.properties = p
+	return nil
 }
-*/
 
 func (s *StateFile) GetLastStartTS() int {
 	return s.properties.LastStartTS
@@ -144,6 +195,15 @@ func (s *StateFile) UpdateLastRequestTS(ts int) {
 
 func (s *StateFile) Save() error {
 
+	if s.StorageType == "disk" {
+		return s.saveToDisk()
+	} else if s.StorageType == "s3" {
+		return s.saveToS3()
+	}
+	return nil
+}
+
+func (s *StateFile) saveToDisk() error {
 	s.lastUpdated = time.Now()
 
 	// open file using READ & WRITE permission
@@ -166,4 +226,57 @@ func (s *StateFile) Save() error {
 	}
 
 	return nil
+}
+
+func (s *StateFile) writeToS3(svc *s3.S3) (*s3.PutObjectOutput, error) {
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(s.s3settings.s3BucketName), // Required
+		Key:    aws.String(s.FileName),                // Required
+		Body:   bytes.NewReader(s.properties.ToJsonBytes()),
+	}
+	return svc.PutObject(params)
+}
+
+func (s *StateFile) saveToS3() error {
+
+	svc, err := s.getAwsSession()
+	if err != nil {
+		return err
+	}
+	_, err = s.writeToS3(svc)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *StateFile) getAwsSession() (*s3.S3, error) {
+
+	sess := session.New(&aws.Config{
+		Region: aws.String("us-east-1"),
+	})
+
+	/*
+		Or with debugging on:
+		sess := session.New((&aws.Config{
+			Region: aws.String("us-east-1"),
+		}).WithLogLevel(aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors))
+	*/
+
+	token := ""
+	creds := credentials.NewStaticCredentials(s.s3settings.awsAccesKey, s.s3settings.awsSecretAccessKey, token)
+	_, err := creds.Get()
+	if err != nil {
+		logp.Err("AWS Credentials Error: %v", err)
+		return nil, err
+	}
+
+	svc := s3.New(sess, &aws.Config{
+		Region:      aws.String("us-east-1"),
+		Credentials: creds,
+	})
+
+	return svc, nil
 }

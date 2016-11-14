@@ -2,7 +2,6 @@ package beater
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -14,10 +13,13 @@ import (
 	"github.com/hartfordfive/cloudflarebeat/config"
 )
 
+const STATEFILE_NAME = "cloudflarebeat.state"
+
 type Cloudflarebeat struct {
 	done   chan struct{}
 	config config.Config
 	client publisher.Client
+	state  *cloudflare.StateFile
 }
 
 // Creates beater
@@ -31,6 +33,26 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		done:   make(chan struct{}),
 		config: config,
 	}
+
+	sfConf := map[string]string{
+		"filename":     STATEFILE_NAME,
+		"storage_type": config.StateFileStorageType,
+	}
+
+	if config.AwsAccessKey != "" && config.AwsSecretAccessKey != "" && config.AwsS3BucketName != "" {
+		sfConf["aws_access_key"] = config.AwsAccessKey
+		sfConf["aws_secret_access_key"] = config.AwsSecretAccessKey
+		sfConf["aws_s3_bucket_name"] = config.AwsS3BucketName
+	}
+
+	sf, err := cloudflare.NewStateFile(sfConf)
+	if err != nil {
+		logp.Err("Statefile error: %v", err)
+		return nil, err
+	}
+
+	bt.state = sf
+
 	return bt, nil
 }
 
@@ -46,26 +68,17 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		"api_key": bt.config.APIKey,
 		"email":   bt.config.Email,
 		"debug":   bt.config.Debug,
-		"exclude": bt.config.Exclude,
 	})
 
-	sf := cloudflare.NewStateFile("cloudflarebeat.state", bt.config.StateFileStorageType)
-	logp.Info("Initializing state file 'cloudflarebeats.state' with storage type '" + bt.config.StateFileStorageType + "'")
-	err := sf.Initialize()
-
-	if err != nil {
-		logp.Err("Could not load statefile: %s", err.Error())
-		os.Exit(1)
-	}
-
-	if sf.GetLastStartTS() != 0 {
-		logp.Info("Start time loaded from state file: %s", time.Unix(int64(sf.GetLastStartTS()), 0).Format(time.RFC3339))
-		logp.Info("  End time loaded from state file: %s", time.Unix(int64(sf.GetLastEndTS()), 0).Format(time.RFC3339))
+	if bt.state.GetLastStartTS() != 0 {
+		logp.Info("Start time loaded from state file: %s", time.Unix(int64(bt.state.GetLastStartTS()), 0).Format(time.RFC3339))
+		logp.Info("  End time loaded from state file: %s", time.Unix(int64(bt.state.GetLastEndTS()), 0).Format(time.RFC3339))
 	}
 
 	var timeStart, timeEnd, timeNow int
 
 	for {
+
 		select {
 		case <-bt.done:
 			return nil
@@ -74,43 +87,40 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		timeNow = int(time.Now().UTC().Unix())
 
-		if sf.GetLastStartTS() != 0 {
-			timeStart = sf.GetLastEndTS() + 1       // last time start
-			timeEnd = sf.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
+		if bt.state.GetLastStartTS() != 0 {
+			timeStart = bt.state.GetLastEndTS() + 1       // last end TS as per statefile
+			timeEnd = bt.state.GetLastEndTS() + (30 * 60) // to 30 minutes later, minus 1 second
 		} else {
-			timeStart = timeNow - (30 * 60) // last end TS as per statefile
-			timeEnd = timeNow               // to 1 second ago
+			// Get the last 3 hours for first run
+			timeStart = timeNow - (60 * 60)
+			timeEnd = timeNow
 		}
-
-		logp.Info("Next request start time: %s", time.Unix(int64(timeStart), 0).Format(time.RFC3339))
-		logp.Info("  Next request end Time: %s", time.Unix(int64(timeEnd), 0).Format(time.RFC3339))
 
 		logs, err := cc.GetLogRangeFromTimestamp(map[string]interface{}{
 			"zone_tag":   bt.config.ZoneTag,
 			"time_start": timeStart,
 			"time_end":   timeEnd,
-			//"count":      10,
 		})
 
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
-			sf.UpdateLastRequestTS(timeNow)
+			bt.state.UpdateLastRequestTS(timeNow)
 		} else {
 			bt.client.PublishEvents(logs)
 			logp.Info("Total events sent this period: %d", len(logs))
 			// Now need to update the disk-based state file that keeps track of the current state
-			sf.UpdateLastStartTS(timeStart)
-			sf.UpdateLastEndTS(timeEnd)
-			sf.UpdateLastCount(len(logs))
-			sf.UpdateLastRequestTS(timeNow)
+			bt.state.UpdateLastStartTS(timeStart)
+			bt.state.UpdateLastEndTS(timeEnd)
+			bt.state.UpdateLastCount(len(logs))
+			bt.state.UpdateLastRequestTS(timeNow)
 		}
 
-		err = sf.Save()
-		if err != nil {
+		if err := bt.state.Save(); err != nil {
 			logp.Err("Could not persist state file to storage: %s", err.Error())
 		}
 
 		counter++
+
 	}
 
 }
@@ -118,4 +128,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 func (bt *Cloudflarebeat) Stop() {
 	bt.client.Close()
 	close(bt.done)
+	if err := bt.state.Save(); err != nil {
+		logp.Err("Could not persist state file to storage while shutting down: %s", err.Error())
+	}
 }

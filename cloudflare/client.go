@@ -145,6 +145,8 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 			l["type"] = "cloudflare"
 			l["counter"] = c.counter
 
+			logp.Info("LOG %v", l)
+
 			/**********************************************************************************
 				Now fix all the nanosecond timestamps and convert them to millisecond timestamps
 				as Elasticsearch doesn't support nanoseconds

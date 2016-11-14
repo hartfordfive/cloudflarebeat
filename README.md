@@ -1,15 +1,24 @@
 # Cloudflarebeat
 
-Welcome to Cloudflarebeat.
+Custom beat to fetch Cloudflare logs via the Enterprise Log Share API.
 
 Ensure that this folder is at the following location:
 `${GOPATH}/github.com/hartfordfive`
+
+
+## Disclaimer
+
+Considering this is currently in beta, it may have bugs and likely various optimizations that can be made.
+If you find any of these, please create an issue or even a pull request if you're familiar with development for beats library.
 
 ## Getting Started with Cloudflarebeat
 
 ### Requirements
 
 * [Golang](https://golang.org/dl/) 1.7
+* github.com/franela/goreq
+*	github.com/pquerna/ffjson/ffjson
+
 
 ### Init Project
 To get running with Cloudflarebeat and also install the
@@ -60,9 +69,43 @@ For details of command line options, view the following links:
 - `cloudflarebeat.api_key` : The API key of the user account (mandatory)
 - `cloudflarebeat.email` : The email address of the user account (mandatory)
 - `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
-- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk`, `s3`, or `consul`, which keeps track of the current progress. (Defau)
+- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
 - `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
 - `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
+
+## Using S3 Storage for state file
+
+For cloudflarebeat, it's probably best to create a seperate IAM user account, without a password and only this sample policy file.  Best to limit the access of your user as a security practice.
+
+Below is a sample of what the policy file would look like for the S3 storage.  Please note you should replace `my-cloudflarebeat-bucket-name` with your bucket name that you've created in S3.
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::my-cloudflarebeat-bucket-name"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::my-cloudflarebeat-bucket-name/*"
+            ]
+        }
+    ]
+}
+```
 
 ## Filtering out specific logs and/or log properties
 
@@ -135,3 +178,13 @@ make package
 ```
 
 This will fetch and create all images required for the build process. The hole process to finish can take several minutes.
+
+
+## Author
+
+Alain Lefebvre <hartfordfive 'at' gmail.com>
+
+## License
+
+Covered under the Apache License, Version 2.0
+Copyright (c) 2016 Alain Lefebvre
