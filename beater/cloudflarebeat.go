@@ -105,7 +105,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		if err != nil {
 			logp.Err("GetLogRangeFromTimestamp: %s", err.Error())
 			bt.state.UpdateLastRequestTS(timeNow)
-		} else {
+		} else if len(logs) >= 1 {
 			bt.client.PublishEvents(logs)
 			logp.Info("Total events sent this period: %d", len(logs))
 			// Now need to update the disk-based state file that keeps track of the current state

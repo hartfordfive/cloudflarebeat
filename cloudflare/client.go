@@ -34,13 +34,8 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 
 	c := &CloudflareClient{
 		methods: map[string][]string{
-			// Download logs starting from a RayID
-			// /client/v4/zones/:zone_tag/logs/requests?start_id=<rayid>[&end=<unix_ts>&count=<number>]
-			//"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests?start_id=%s&end=%d&count=%d"},
-			"get_range_from_ray_id": {"GET", "/client/v4/zones/%s/logs/requests"},
 			// Download logs starting from a specific timestamp
 			// /client/v4/zones/:zone_tag/logs/requests?start=<unix_ts>[&end=<unix_ts>&count=<number>]
-			//"get_range_from_timestamp": {"GET", "/client/v4/zones/%s/logs/requests?start=%d&end=%d"},
 			"get_range_from_timestamp": {"GET", "/client/v4/zones/%s/logs/requests"},
 		},
 		counter: 0,
@@ -67,19 +62,7 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 	qsa := url.Values{}
 	url := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
 
-	if actionType == "get_range_from_ray_id" {
-
-		if _, ok := params["ray_id"]; ok {
-			qsa.Set("start_id", params["ray_id"].(string))
-		}
-		if _, ok := params["time_end"]; ok {
-			qsa.Set("end", fmt.Sprintf("%d", params["time_end"].(int)))
-		}
-		if _, ok := params["count"]; ok {
-			qsa.Set("count", fmt.Sprintf("%d", params["count"].(int)))
-		}
-
-	} else if actionType == "get_range_from_timestamp" {
+	if actionType == "get_range_from_timestamp" {
 
 		if _, ok := params["time_start"]; ok {
 			qsa.Set("start", fmt.Sprintf("%d", params["time_start"].(int)))
@@ -134,8 +117,6 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		}
 
 		err := ffjson.Unmarshal([]byte(logItem), &l)
-
-		logp.Info("LOG Pre-update: %v", l)
 
 		if err == nil {
 			c.counter++
