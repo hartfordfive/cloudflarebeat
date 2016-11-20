@@ -1,16 +1,13 @@
 package cloudflare
 
 import (
-	"errors"
+	//"bufio"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
-	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/franela/goreq"
-	"github.com/pquerna/ffjson/ffjson"
 )
 
 /**
@@ -27,7 +24,9 @@ type CloudflareClient struct {
 	UserServiceKey string
 	methods        map[string][]string
 	debug          bool
+	RequestLogFile *RequestLogFile
 	counter        int64
+	LogfileName    string
 }
 
 func NewClient(params map[string]interface{}) *CloudflareClient {
@@ -55,9 +54,7 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 	return c
 }
 
-func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) ([]common.MapStr, error) {
-
-	var logs []common.MapStr
+func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) error {
 
 	qsa := url.Values{}
 	url := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
@@ -77,9 +74,8 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 
 	req := goreq.Request{
 		Uri:         url,
-		Timeout:     60 * time.Second,
+		Timeout:     10 * time.Minute,
 		ShowDebug:   c.debug,
-		Compression: goreq.Gzip(),
 		QueryString: qsa,
 	}
 
@@ -91,127 +87,24 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 		req.AddHeader("X-Auth-Email", c.Email)
 	}
 
+	logp.Info("Downloading log file...")
+
 	response, err := req.Do()
 	if err != nil {
-		return logs, err
+		return err
 	}
 
-	responseBodyString, err := response.Body.ToString()
-
+	// Now need to save all the resposne content to a file
+	c.LogfileName = fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
+	rlf := NewRequestLogFile(c.LogfileName)
+	c.RequestLogFile = rlf
+	nBytes, err := c.RequestLogFile.SaveFromHttpResponseBody(response.Body)
 	if err != nil {
-		return logs, err
-	} else if responseBodyString == "" {
-		return logs, errors.New("Request body is empty")
+		return err
 	}
+	logp.Info("Downloaded %d bytes", nBytes)
 
-	// Split the response body into individual lines
-	responseLines := strings.Split(responseBodyString, "\n")
-
-	//var ts float64
-	var l common.MapStr
-
-	for _, logItem := range responseLines {
-
-		if strings.TrimSpace(logItem) == "" {
-			continue
-		}
-
-		err := ffjson.Unmarshal([]byte(logItem), &l)
-
-		if err == nil {
-			c.counter++
-			ts, err := l.GetValue("timestamp")
-			if err == nil {
-				l["timestamp"] = int64(ts.(float64)) / 1000000
-			}
-			l["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))).UTC())
-			l["type"] = "cloudflare"
-			l["counter"] = c.counter
-
-			/**********************************************************************************
-				Now fix all the nanosecond timestamps and convert them to millisecond timestamps
-				as Elasticsearch doesn't support nanoseconds
-			**********************************************************************************/
-			edge, err := l.GetValue("edge")
-			if err == nil {
-				switch edge.(map[string]interface{})["startTimestamp"].(type) {
-				case int64:
-					ns := edge.(map[string]interface{})["startTimestamp"].(int64)
-					l["edge"].(map[string]interface{})["startTimestamp"] = ns / 1000000
-				case float64:
-					ns := edge.(map[string]interface{})["startTimestamp"].(float64)
-					l["edge"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
-				}
-				switch edge.(map[string]interface{})["endTimestamp"].(type) {
-				case int64:
-					ns := edge.(map[string]interface{})["endTimestamp"].(int64)
-					l["edge"].(map[string]interface{})["endTimestamp"] = ns / 1000000
-				case float64:
-					ns := edge.(map[string]interface{})["endTimestamp"].(float64)
-					l["edge"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
-				}
-			}
-			cache, err := l.GetValue("cache")
-			if err == nil {
-				switch cache.(map[string]interface{})["startTimestamp"].(type) {
-				case int64:
-					ns := cache.(map[string]interface{})["startTimestamp"].(int64)
-					l["cache"].(map[string]interface{})["startTimestamp"] = ns / 1000000
-				case float64:
-					ns := cache.(map[string]interface{})["startTimestamp"].(float64)
-					l["cache"].(map[string]interface{})["startTimestamp"] = int64(ns) / 1000000
-				}
-				switch cache.(map[string]interface{})["endTimestamp"].(type) {
-				case int64:
-					ns := cache.(map[string]interface{})["endTimestamp"].(int64)
-					l["cache"].(map[string]interface{})["endTimestamp"] = ns / 1000000
-				case float64:
-					ns := cache.(map[string]interface{})["endTimestamp"].(float64)
-					l["cache"].(map[string]interface{})["endTimestamp"] = int64(ns) / 1000000
-				}
-			}
-
-			waf, err := l.GetValue("waf")
-			if err == nil {
-				switch waf.(map[string]interface{})["timestampStart"].(type) {
-				case int64:
-					ns := waf.(map[string]interface{})["timestampStart"].(int64)
-					l["waf"].(map[string]interface{})["timestampStart"] = ns / 1000000
-				case float64:
-					ns := waf.(map[string]interface{})["timestampStart"].(float64)
-					l["waf"].(map[string]interface{})["timestampStart"] = int64(ns) / 1000000
-				}
-				switch waf.(map[string]interface{})["timestampEnd"].(type) {
-				case int64:
-					ns := waf.(map[string]interface{})["timestampEnd"].(int64)
-					l["waf"].(map[string]interface{})["timestampEnd"] = ns / 1000000
-				case float64:
-					ns := waf.(map[string]interface{})["timestampEnd"].(float64)
-					l["waf"].(map[string]interface{})["timestampEnd"] = int64(ns) / 1000000
-				}
-			}
-
-			or, err := l.GetValue("originResponse")
-			if err == nil {
-				switch or.(map[string]interface{})["httpExpires"].(type) {
-				case int64:
-					ns := or.(map[string]interface{})["httpExpires"].(int64)
-					l["originResponse"].(map[string]interface{})["httpExpires"] = ns / 1000000
-				case float64:
-					ns := or.(map[string]interface{})["httpExpires"].(float64)
-					l["originResponse"].(map[string]interface{})["httpExpires"] = int64(ns) / 1000000
-				}
-
-			}
-
-			logs = append(logs, l)
-		} else {
-			logp.Err("Could not load JSON: %s", err)
-		}
-
-	} // END of range responseLines
-
-	return logs, nil
+	return nil
 }
 
 /*
@@ -220,9 +113,17 @@ func (c *CloudflareClient) GetLogRangeFromRayId(zoneTag string, rayId string) {
 }
 */
 
+/*
 func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) ([]common.MapStr, error) {
-
 	//var logs []common.MapStr
 	return c.doRequest("get_range_from_timestamp", opts)
+}
+*/
 
+func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) error {
+	err := c.doRequest("get_range_from_timestamp", opts)
+	if err != nil {
+		return err
+	}
+	return nil
 }
