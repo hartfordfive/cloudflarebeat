@@ -84,7 +84,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 	var timeStart, timeEnd, timeNow int
 	var l common.MapStr
-	var logs []common.MapStr
+	//var logs []common.MapStr
 	var logItem []byte
 
 	var currCount int
@@ -100,12 +100,14 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		timeNow = int(time.Now().UTC().Unix())
 
 		if bt.state.GetLastStartTS() != 0 {
-			timeStart = bt.state.GetLastEndTS() + 1                // last end TS as per statefile
-			timeEnd = bt.state.GetLastEndTS() + (NUM_MINUTES * 60) // to 30 minutes later, minus 1 second
+			timeStart = bt.state.GetLastEndTS() + 1  // last end TS as per statefile
+			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes later, minus 1 second
 		} else {
 			// Set the start and end time if this is the first run
-			timeStart = (timeNow - (NUM_MINUTES * 60)) - (30 * 60) // specified number of minutes ago - 30 minutes
-			timeEnd = timeNow - (30 * 60)                          // Up to 30 minutes ago
+			//timeStart = (timeNow - (NUM_MINUTES * 60)) - (30 * 60) // specified number of minutes ago - 30 minutes
+			//timeEnd = timeNow - (30 * 60)                          // Up to 30 minutes ago
+			timeStart = timeNow - 3600               // start an hour ago
+			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes ago
 		}
 
 		bt.state.UpdateLastRequestTS(timeNow)
@@ -118,12 +120,15 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		if err != nil {
 			logp.Err("Error downloading logs from CF: %v", err)
+		} else {
+
+			logp.Debug("cloudflarebeat", "Total Download Time: %d seconds", (timeNow - int(time.Now().UTC().Unix())))
 		}
 
 		//----------------------------------------------------
 
 		// Now go over the file scanner
-		logp.Info("About to scan gzip log file...")
+		logp.Debug("cloudflarebeat", "About to scan gzip log file...")
 
 		fh, err := os.Open(cc.LogfileName)
 		if err != nil {
@@ -153,9 +158,9 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 				counter++
 				ts, err := l.GetValue("timestamp")
 				if err == nil {
-					l["timestamp"] = int64(ts.(float64)) / 1000000
+					l["timestamp"] = int64(ts.(float64)) / int64(time.Millisecond)
 				}
-				l["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))).UTC())
+				l["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))))
 				l["type"] = "cloudflare"
 				l["counter"] = counter
 
@@ -163,85 +168,69 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 				//	Now fix all the nanosecond timestamps and convert them to millisecond timestamps
 				//	as Elasticsearch doesn't support nanoseconds
 				//**********************************************************************************/
-				edge, err := l.GetValue("edge")
-				if err == nil {
-					switch edge.(map[string]interface{})["startTimestamp"].(type) {
-					case int64:
-						//ns := edge.(map[string]interface{})["startTimestamp"].(int64)
-						l["edge"].(map[string]interface{})["startTimestamp"] = edge.(map[string]interface{})["startTimestamp"].(int64) / 1000000
-					case float64:
-						//ns := edge.(map[string]interface{})["startTimestamp"].(float64)
-						l["edge"].(map[string]interface{})["startTimestamp"] = int64(edge.(map[string]interface{})["startTimestamp"].(float64)) / 1000000
+
+				cloudflare.FixTimestampFields(l)
+
+				/*
+					edge, err := l.GetValue("edge")
+					if err == nil {
+						switch edge.(map[string]interface{})["startTimestamp"].(type) {
+						case int64:
+							l["edge"].(map[string]interface{})["startTimestamp"] = edge.(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["edge"].(map[string]interface{})["startTimestamp"] = int64(edge.(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
+						}
+						switch edge.(map[string]interface{})["endTimestamp"].(type) {
+						case int64:
+							l["edge"].(map[string]interface{})["endTimestamp"] = edge.(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["edge"].(map[string]interface{})["endTimestamp"] = int64(edge.(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
+						}
 					}
-					switch edge.(map[string]interface{})["endTimestamp"].(type) {
-					case int64:
-						//ns := edge.(map[string]interface{})["endTimestamp"].(int64)
-						l["edge"].(map[string]interface{})["endTimestamp"] = edge.(map[string]interface{})["endTimestamp"].(int64) / 1000000
-					case float64:
-						//ns := edge.(map[string]interface{})["endTimestamp"].(float64)
-						l["edge"].(map[string]interface{})["endTimestamp"] = int64(edge.(map[string]interface{})["endTimestamp"].(float64)) / 1000000
-					}
-				}
-				cache, err := l.GetValue("cache")
-				if err == nil {
-					switch cache.(map[string]interface{})["startTimestamp"].(type) {
-					case int64:
-						//ns := cache.(map[string]interface{})["startTimestamp"].(int64)
-						l["cache"].(map[string]interface{})["startTimestamp"] = cache.(map[string]interface{})["startTimestamp"].(int64) / 1000000
-					case float64:
-						//ns := cache.(map[string]interface{})["startTimestamp"].(float64)
-						l["cache"].(map[string]interface{})["startTimestamp"] = int64(cache.(map[string]interface{})["startTimestamp"].(float64)) / 1000000
-					}
-					switch cache.(map[string]interface{})["endTimestamp"].(type) {
-					case int64:
-						//ns := cache.(map[string]interface{})["endTimestamp"].(int64)
-						l["cache"].(map[string]interface{})["endTimestamp"] = cache.(map[string]interface{})["endTimestamp"].(int64) / 1000000
-					case float64:
-						//ns := cache.(map[string]interface{})["endTimestamp"].(float64)
-						l["cache"].(map[string]interface{})["endTimestamp"] = int64(cache.(map[string]interface{})["endTimestamp"].(float64)) / 1000000
+					cache, err := l.GetValue("cache")
+					if err == nil {
+						switch cache.(map[string]interface{})["startTimestamp"].(type) {
+						case int64:
+							l["cache"].(map[string]interface{})["startTimestamp"] = cache.(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["cache"].(map[string]interface{})["startTimestamp"] = int64(cache.(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
+						}
+						switch cache.(map[string]interface{})["endTimestamp"].(type) {
+						case int64:
+							l["cache"].(map[string]interface{})["endTimestamp"] = cache.(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["cache"].(map[string]interface{})["endTimestamp"] = int64(cache.(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
+						}
+
 					}
 
-					logp.Info("cache.cacheInternalIp: %s", cache.(map[string]interface{})["cacheInternalIp"].(string))
-
-					// Deal with this field potentially being empty
-					if cache.(map[string]interface{})["cacheInternalIp"].(string) == "" {
-						l.Delete("cache.cacheInternalIp")
+					waf, err := l.GetValue("waf")
+					if err == nil {
+						switch waf.(map[string]interface{})["timestampStart"].(type) {
+						case int64:
+							l["waf"].(map[string]interface{})["timestampStart"] = waf.(map[string]interface{})["timestampStart"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["waf"].(map[string]interface{})["timestampStart"] = int64(waf.(map[string]interface{})["timestampStart"].(float64)) / int64(time.Millisecond)
+						}
+						switch waf.(map[string]interface{})["timestampEnd"].(type) {
+						case int64:
+							l["waf"].(map[string]interface{})["timestampEnd"] = waf.(map[string]interface{})["timestampEnd"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["waf"].(map[string]interface{})["timestampEnd"] = int64(waf.(map[string]interface{})["timestampEnd"].(float64)) / int64(time.Millisecond)
+						}
 					}
 
-				}
+					or, err := l.GetValue("originResponse")
+					if err == nil {
+						switch or.(map[string]interface{})["httpExpires"].(type) {
+						case int64:
+							l["originResponse"].(map[string]interface{})["httpExpires"] = or.(map[string]interface{})["httpExpires"].(int64) / int64(time.Millisecond)
+						case float64:
+							l["originResponse"].(map[string]interface{})["httpExpires"] = int64(or.(map[string]interface{})["httpExpires"].(float64)) / int64(time.Millisecond)
+						}
 
-				waf, err := l.GetValue("waf")
-				if err == nil {
-					switch waf.(map[string]interface{})["timestampStart"].(type) {
-					case int64:
-						//ns := waf.(map[string]interface{})["timestampStart"].(int64)
-						l["waf"].(map[string]interface{})["timestampStart"] = waf.(map[string]interface{})["timestampStart"].(int64) / 1000000
-					case float64:
-						//ns := waf.(map[string]interface{})["timestampStart"].(float64)
-						l["waf"].(map[string]interface{})["timestampStart"] = int64(waf.(map[string]interface{})["timestampStart"].(float64)) / 1000000
 					}
-					switch waf.(map[string]interface{})["timestampEnd"].(type) {
-					case int64:
-						//ns := waf.(map[string]interface{})["timestampEnd"].(int64)
-						l["waf"].(map[string]interface{})["timestampEnd"] = waf.(map[string]interface{})["timestampEnd"].(int64) / 1000000
-					case float64:
-						//ns := waf.(map[string]interface{})["timestampEnd"].(float64)
-						l["waf"].(map[string]interface{})["timestampEnd"] = int64(waf.(map[string]interface{})["timestampEnd"].(float64)) / 1000000
-					}
-				}
-
-				or, err := l.GetValue("originResponse")
-				if err == nil {
-					switch or.(map[string]interface{})["httpExpires"].(type) {
-					case int64:
-						//ns := or.(map[string]interface{})["httpExpires"].(int64)
-						l["originResponse"].(map[string]interface{})["httpExpires"] = or.(map[string]interface{})["httpExpires"].(int64) / 1000000
-					case float64:
-						//ns := or.(map[string]interface{})["httpExpires"].(float64)
-						l["originResponse"].(map[string]interface{})["httpExpires"] = int64(or.(map[string]interface{})["httpExpires"].(float64)) / 1000000
-					}
-
-				}
+				*/
 
 				bt.client.PublishEvent(l)
 				currCount++
@@ -259,13 +248,20 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			// Now need to update the disk-based state file that keeps track of the current state
 			bt.state.UpdateLastStartTS(timeStart)
 			bt.state.UpdateLastEndTS(timeEnd)
-			bt.state.UpdateLastCount(len(logs))
+			bt.state.UpdateLastCount(currCount)
 			bt.state.UpdateLastRequestTS(timeNow)
 			currCount = 0
 		}
 
 		if err := bt.state.Save(); err != nil {
 			logp.Err("Could not persist state file to storage: %s", err.Error())
+		}
+
+		// Now delete the log file
+		if err := os.Remove(cc.LogfileName); err != nil {
+			logp.Err("Could not delete local log file %s: %s", cc.LogfileName, err.Error())
+		} else {
+			logp.Info("Deleted local log file %s", cc.LogfileName)
 		}
 
 		counter++
