@@ -41,7 +41,7 @@
           }
         },
         "brandId": {
-          "type": "long", "index":"not_analyzed"
+          "type": "long"
         },
         "cache": {
           "properties": {
@@ -51,7 +51,7 @@
             "cacheInternalIp": {"type": "ip"},
             "cacheServerName": {"type": "string", "ignore_above": 256},
             "cacheStatus": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
-            "cacheTokens": {"type": "integer"},
+            "cacheFileKey": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
             "endTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
             "startTimestamp": {"type": "date", "format": "epoch_millis||date_time"}
           }
@@ -94,7 +94,6 @@
             "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
           }
         },
-
 
         "clientRequest": {
           "properties": {
@@ -153,8 +152,8 @@
           }
         },
 
-
         "counter": {"type": "long"},
+
         "edge": {
           "properties": {
             "bbResult": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
@@ -173,6 +172,7 @@
             "usedFlags": {"type": "integer"}
           }
         },
+
         "edgeRequest": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -204,6 +204,7 @@
             }
           }
         },
+
         "edgeResponse": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -225,8 +226,10 @@
             "status": {"type": "integer"}
           }
         },
+
         "flags": {"type": "integer"},
         "hosterId": {"type": "integer"},
+        
         "origin": {
           "properties": {
             "asNum": {"type": "integer"},
@@ -237,6 +240,7 @@
             "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
           }
         },
+
         "originResponse": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -248,6 +252,7 @@
             "status": {"type": "integer"}
           }
         },
+        
         "ownerId": {"type": "long"},
         "rayId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "securityLevel": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
@@ -267,6 +272,7 @@
           }
         },
         "zonePlan": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+
         "tags": {
           "ignore_above": 1024,
           "index": "not_analyzed",

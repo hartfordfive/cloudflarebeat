@@ -42,7 +42,8 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	}
 
 	sfConf := map[string]string{
-		"filename":     STATEFILE_NAME,
+		"filename":     config.StateFileName,
+		"filepath":     config.StateFilePath,
 		"storage_type": config.StateFileStorageType,
 	}
 
@@ -82,9 +83,11 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		logp.Info("  End time loaded from state file: %s", time.Unix(int64(bt.state.GetLastEndTS()), 0).Format(time.RFC3339))
 	}
 
-	var timeStart, timeEnd, timeNow int
-	var l common.MapStr
+	var timeStart, timeEnd, timeNow, timePreIndex int
+	//var l common.MapStr
+	var l map[string]interface{}
 	//var logs []common.MapStr
+	var evt common.MapStr
 	var logItem []byte
 
 	var currCount int
@@ -100,8 +103,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		timeNow = int(time.Now().UTC().Unix())
 
 		if bt.state.GetLastStartTS() != 0 {
-			timeStart = bt.state.GetLastEndTS() + 1  // last end TS as per statefile
-			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes later, minus 1 second
+			timeStart = bt.state.GetLastEndTS() + 1  // last end TS as per statefile + 1 second
+			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes later
 		} else {
 			// Set the start and end time if this is the first run
 			//timeStart = (timeNow - (NUM_MINUTES * 60)) - (30 * 60) // specified number of minutes ago - 30 minutes
@@ -122,13 +125,12 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			logp.Err("Error downloading logs from CF: %v", err)
 		} else {
 
-			logp.Debug("cloudflarebeat", "Total Download Time: %d seconds", (timeNow - int(time.Now().UTC().Unix())))
+			logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 		}
 
 		//----------------------------------------------------
 
 		// Now go over the file scanner
-		logp.Debug("cloudflarebeat", "About to scan gzip log file...")
 
 		fh, err := os.Open(cc.LogfileName)
 		if err != nil {
@@ -138,6 +140,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		defer fh.Close()
 
 		/* Now we need to read the content form the file, split line by line and itterate over them */
+		logp.Info("Opening gziped log file for reading...")
 		gz, err := gzip.NewReader(fh)
 		if err != nil {
 			logp.Err("Could not open file for reading: %v", err)
@@ -146,6 +149,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		defer gz.Close()
 
 		scanner := bufio.NewScanner(gz)
+
+		timePreIndex = int(time.Now().UTC().Unix())
 
 		for scanner.Scan() {
 
@@ -156,89 +161,34 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			if err == nil {
 
 				counter++
-				ts, err := l.GetValue("timestamp")
+
+				evt = cloudflare.BuildMapStr(l)
+
+				ts, err := evt.GetValue("timestamp")
 				if err == nil {
-					l["timestamp"] = int64(ts.(float64)) / int64(time.Millisecond)
+					evt["timestamp"] = int64(ts.(float64)) / int64(time.Millisecond)
 				}
-				l["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))))
-				l["type"] = "cloudflare"
-				l["counter"] = counter
+				evt["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))))
+				evt["type"] = "cloudflare"
+				evt["counter"] = counter
 
 				//**********************************************************************************
 				//	Now fix all the nanosecond timestamps and convert them to millisecond timestamps
 				//	as Elasticsearch doesn't support nanoseconds
 				//**********************************************************************************/
 
-				cloudflare.FixTimestampFields(l)
+				//cloudflare.FixTimestampFields(l)
+				//evt := cloudflare.BuildMapStr(l)
 
-				/*
-					edge, err := l.GetValue("edge")
-					if err == nil {
-						switch edge.(map[string]interface{})["startTimestamp"].(type) {
-						case int64:
-							l["edge"].(map[string]interface{})["startTimestamp"] = edge.(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["edge"].(map[string]interface{})["startTimestamp"] = int64(edge.(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
-						}
-						switch edge.(map[string]interface{})["endTimestamp"].(type) {
-						case int64:
-							l["edge"].(map[string]interface{})["endTimestamp"] = edge.(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["edge"].(map[string]interface{})["endTimestamp"] = int64(edge.(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
-						}
-					}
-					cache, err := l.GetValue("cache")
-					if err == nil {
-						switch cache.(map[string]interface{})["startTimestamp"].(type) {
-						case int64:
-							l["cache"].(map[string]interface{})["startTimestamp"] = cache.(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["cache"].(map[string]interface{})["startTimestamp"] = int64(cache.(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
-						}
-						switch cache.(map[string]interface{})["endTimestamp"].(type) {
-						case int64:
-							l["cache"].(map[string]interface{})["endTimestamp"] = cache.(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["cache"].(map[string]interface{})["endTimestamp"] = int64(cache.(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
-						}
-
-					}
-
-					waf, err := l.GetValue("waf")
-					if err == nil {
-						switch waf.(map[string]interface{})["timestampStart"].(type) {
-						case int64:
-							l["waf"].(map[string]interface{})["timestampStart"] = waf.(map[string]interface{})["timestampStart"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["waf"].(map[string]interface{})["timestampStart"] = int64(waf.(map[string]interface{})["timestampStart"].(float64)) / int64(time.Millisecond)
-						}
-						switch waf.(map[string]interface{})["timestampEnd"].(type) {
-						case int64:
-							l["waf"].(map[string]interface{})["timestampEnd"] = waf.(map[string]interface{})["timestampEnd"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["waf"].(map[string]interface{})["timestampEnd"] = int64(waf.(map[string]interface{})["timestampEnd"].(float64)) / int64(time.Millisecond)
-						}
-					}
-
-					or, err := l.GetValue("originResponse")
-					if err == nil {
-						switch or.(map[string]interface{})["httpExpires"].(type) {
-						case int64:
-							l["originResponse"].(map[string]interface{})["httpExpires"] = or.(map[string]interface{})["httpExpires"].(int64) / int64(time.Millisecond)
-						case float64:
-							l["originResponse"].(map[string]interface{})["httpExpires"] = int64(or.(map[string]interface{})["httpExpires"].(float64)) / int64(time.Millisecond)
-						}
-
-					}
-				*/
-
-				bt.client.PublishEvent(l)
+				bt.client.PublishEvent(evt)
 				currCount++
 			} else {
 				logp.Err("Could not load JSON: %s", err)
 			}
 
 		}
+
+		logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
 
 		//-----------------------------------------------------
 

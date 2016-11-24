@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -22,6 +23,7 @@ const (
 
 type StateFile struct {
 	FileName    string
+	FilePath    string
 	StorageType string
 	properties  Properties
 	lastUpdated time.Time
@@ -64,6 +66,8 @@ func NewStateFile(config map[string]string) (*StateFile, error) {
 			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
 		}
 		sf.s3settings = &awsS3Settings{config["aws_access_key"], config["aws_secret_access_key"], config["aws_s3_bucket_name"]}
+	} else if _, ok := config["filepath"]; ok {
+		sf.FilePath = config["filepath"]
 	}
 	sf.initialize()
 	return sf, nil
@@ -90,8 +94,8 @@ func (s *StateFile) initializeStateFileValues() {
 func (s *StateFile) loadFromDisk() error {
 
 	// Create it if it doesn't exist
-	if _, err := os.Stat(s.FileName); os.IsNotExist(err) {
-		var file, err = os.Create(s.FileName)
+	if _, err := os.Stat(filepath.Join(s.FilePath, s.FileName)); os.IsNotExist(err) {
+		var file, err = os.Create(filepath.Join(s.FilePath, s.FileName))
 		defer file.Close()
 		if err != nil {
 			return err
@@ -101,7 +105,7 @@ func (s *StateFile) loadFromDisk() error {
 	}
 
 	// Now load the file in memory
-	sfData, err := ioutil.ReadFile(s.FileName)
+	sfData, err := ioutil.ReadFile(filepath.Join(s.FilePath, s.FileName))
 	if err != nil {
 		return err
 	}
@@ -112,8 +116,8 @@ func (s *StateFile) loadFromDisk() error {
 		if err != nil {
 			logp.Err("%s", err)
 			logp.Info("State file contents: %s", string(sfData))
-			err = os.Remove(s.FileName)
-			var file, err = os.Create(s.FileName)
+			err = os.Remove(filepath.Join(s.FilePath, s.FileName))
+			var file, err = os.Create(filepath.Join(s.FilePath, s.FileName))
 			defer file.Close()
 			if err != nil {
 				return err
