@@ -84,9 +84,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	}
 
 	var timeStart, timeEnd, timeNow, timePreIndex int
-	//var l common.MapStr
 	var l map[string]interface{}
-	//var logs []common.MapStr
 	var evt common.MapStr
 	var logItem []byte
 
@@ -107,8 +105,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes later
 		} else {
 			// Set the start and end time if this is the first run
-			//timeStart = (timeNow - (NUM_MINUTES * 60)) - (30 * 60) // specified number of minutes ago - 30 minutes
-			//timeEnd = timeNow - (30 * 60)                          // Up to 30 minutes ago
 			timeStart = timeNow - 3600               // start an hour ago
 			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes ago
 		}
@@ -172,14 +168,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 				evt["type"] = "cloudflare"
 				evt["counter"] = counter
 
-				//**********************************************************************************
-				//	Now fix all the nanosecond timestamps and convert them to millisecond timestamps
-				//	as Elasticsearch doesn't support nanoseconds
-				//**********************************************************************************/
-
-				//cloudflare.FixTimestampFields(l)
-				//evt := cloudflare.BuildMapStr(l)
-
 				bt.client.PublishEvent(evt)
 				currCount++
 			} else {
@@ -193,7 +181,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		//-----------------------------------------------------
 
 		if currCount >= 1 {
-			//bt.client.PublishEvents(logs)
 			logp.Info("Total events sent this period: %d", currCount)
 			// Now need to update the disk-based state file that keeps track of the current state
 			bt.state.UpdateLastStartTS(timeStart)
