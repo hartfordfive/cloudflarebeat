@@ -19,7 +19,7 @@ import (
 
 const (
 	STATEFILE_NAME = "cloudflarebeat.state"
-	NUM_MINUTES    = 5
+	NUM_MINUTES    = 30
 )
 
 type Cloudflarebeat struct {
@@ -188,7 +188,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		}
 
-		logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
+		logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
 
 		//-----------------------------------------------------
 
