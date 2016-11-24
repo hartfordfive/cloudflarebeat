@@ -64,12 +64,16 @@ For details of command line options, view the following links:
 - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-command-line.html
 
 
+
+
 ## Cloudflarebeat specific configuration options
 
-- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  (Default value is 1800s/30mins which is the default suggested by the Enterprise Log Share API documentation page.)
+- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  Regardless of the period, logs are always fetched from **30 MINUTES AGO - PERIOD** to **NOW**. (Default value of period is 1800s/30mins)  
 - `cloudflarebeat.api_key` : The API key of the user account (mandatory)
 - `cloudflarebeat.email` : The email address of the user account (mandatory)
 - `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
+- `cloudflarebeat.state_file_path` : The path in which the state file will be saved (applicable only with `disk` storage type)
+- `cloudflarebeat.state_file_name` : The name of the state file
 - `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
 - `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
 - `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
