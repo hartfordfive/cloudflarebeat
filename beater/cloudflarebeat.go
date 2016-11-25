@@ -11,7 +11,6 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/publisher"
-	//"github.com/elastic/beats/libbeat/outputs/mode/lb"
 	"github.com/hartfordfive/cloudflarebeat/cloudflare"
 	"github.com/hartfordfive/cloudflarebeat/config"
 	"github.com/pquerna/ffjson/ffjson"
@@ -34,6 +33,10 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	config := config.DefaultConfig
 	if err := cfg.Unpack(&config); err != nil {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
+	}
+
+	if config.Period.Minutes() < 1 {
+		config.Period = 5 * time.Minute
 	}
 
 	bt := &Cloudflarebeat{
@@ -101,13 +104,16 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		timeNow = int(time.Now().UTC().Unix())
 
 		if bt.state.GetLastStartTS() != 0 {
-			timeStart = bt.state.GetLastEndTS() + 1  // last end TS as per statefile + 1 second
-			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes later
+			timeStart = bt.state.GetLastEndTS() + 1 // last end TS as per statefile + 1 second
+			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
+			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
 		} else {
 			// Set the start and end time if this is the first run
-			timeStart = timeNow - 3600               // start an hour ago
-			timeEnd = timeStart + (NUM_MINUTES * 60) // to 30 minutes ago
+			timeStart = timeNow - 3600 // start an hour ago
+			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes ago
 		}
+
+		timeEnd = timeStart + (int(bt.config.Period.Seconds()) * 60)
 
 		bt.state.UpdateLastRequestTS(timeNow)
 
@@ -151,6 +157,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		for scanner.Scan() {
 
 			logItem = scanner.Bytes()
+			//logp.Info("Event Pre: %v", string(logItem))
 
 			err := ffjson.Unmarshal(logItem, &l)
 
@@ -159,20 +166,30 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 				counter++
 
 				evt = cloudflare.BuildMapStr(l)
+				//logp.Info("Event Post: %v", evt)
 
-				ts, err := evt.GetValue("timestamp")
-				if err == nil {
-					evt["timestamp"] = int64(ts.(float64)) / int64(time.Millisecond)
-				}
-				evt["@timestamp"] = common.Time(time.Unix(0, int64(ts.(float64))))
+				/*
+					ts, err := evt.GetValue("timestamp")
+					if err != nil {
+						panic(err)
+					}
+				*/
+				//evt.EnsureTimestampField(cloudflare.SetTime(ts.(int64)))
+				//evt["@timestamp"] = common.Time(time.Unix(0, int64(ts.(int64))))
+				evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
 				evt["type"] = "cloudflare"
 				evt["counter"] = counter
+
+				//logp.Info("Time: %s", evt["@timestamp"])
+				//os.Exit(1)
 
 				bt.client.PublishEvent(evt)
 				currCount++
 			} else {
 				logp.Err("Could not load JSON: %s", err)
 			}
+
+			l = nil
 
 		}
 
@@ -195,6 +212,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		}
 
 		// Now delete the log file
+
 		if err := os.Remove(cc.LogfileName); err != nil {
 			logp.Err("Could not delete local log file %s: %s", cc.LogfileName, err.Error())
 		} else {

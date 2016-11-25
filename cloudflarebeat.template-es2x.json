@@ -18,7 +18,7 @@
               "type": "string"
             },
             "match_mapping_type": "string",
-            "path_match": "fields.*"
+            "match": "*"
           }
         }
       ],
@@ -169,7 +169,27 @@
             "rateLimitRuleId": {"type": "integer"},
             "startTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
             "endTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
-            "usedFlags": {"type": "integer"}
+            "usedFlags": {"type": "integer"},
+            "waf": {
+              "properties": {
+                "timestamptStart": {"type": "long"},
+                "timestamptEnd": {"type": "long"},
+                "profile": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleMessage": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "action": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleDetail": {"type": "nested"},
+                "matchedVar": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "activatedRules": {"type": "nested"},
+                "ruleGroup": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "exitCode": {"type": "integer"},
+                "xssScore": {"type": "integer"},
+                "sqlInjectionScore": {"type": "integer"},
+                "anomalyScore": {"type": "integer"},
+                "tags": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "flags": {"type": "integer"}
+              }
+            }
           }
         },
 
@@ -259,6 +279,7 @@
         "timestamp": {"type": "long"},
         "type": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "unstable": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+
         "zoneId": {"type": "integer"},
         "zoneName": {
           "type": "string", 

@@ -9,9 +9,14 @@ import (
 
 // BuildMapStr creates a valid common.MapStr struct only containing non-empty fields
 func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
-	entry := common.MapStr{
-		"counter":   0,
-		"timestamp": logEntry["timestamp"],
+	entry := common.MapStr{}
+
+	// Now convert the nanosecond timestamps to millisecond timestamps
+	switch logEntry["timestamp"].(type) {
+	case int64:
+		entry["timestamp"] = logEntry["timestamp"].(int64) / int64(time.Millisecond)
+	case float64:
+		entry["timestamp"] = int64(logEntry["timestamp"].(float64)) / int64(time.Millisecond)
 	}
 
 	entry["brandId"] = logEntry["brandId"]
@@ -36,14 +41,19 @@ func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
 		switch logEntry["cache"].(map[string]interface{})["startTimestamp"].(type) {
 		case int64:
 			entry["cache"].(map[string]interface{})["startTimestamp"] = logEntry["cache"].(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
+			//entry["cache"].(map[string]interface{})["startTimestamp"] = common.Time(time.Unix(0, logEntry["cache"].(map[string]interface{})["startTimestamp"].(int64)))
 		case float64:
 			entry["cache"].(map[string]interface{})["startTimestamp"] = int64(logEntry["cache"].(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
+			//entry["cache"].(map[string]interface{})["startTimestamp"] = common.Time(time.Unix(0, int64(logEntry["cache"].(map[string]interface{})["startTimestamp"].(float64))))
 		}
+
 		switch logEntry["cache"].(map[string]interface{})["endTimestamp"].(type) {
 		case int64:
 			entry["cache"].(map[string]interface{})["endTimestamp"] = logEntry["cache"].(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
+			//entry["cache"].(map[string]interface{})["endTimestamp"] = common.Time(time.Unix(0, logEntry["cache"].(map[string]interface{})["endTimestamp"].(int64)))
 		case float64:
 			entry["cache"].(map[string]interface{})["endTimestamp"] = int64(logEntry["cache"].(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
+			//entry["cache"].(map[string]interface{})["endTimestamp"] = common.Time(time.Unix(0, int64(logEntry["cache"].(map[string]interface{})["endTimestamp"].(float64))))
 		}
 	}
 
@@ -62,7 +72,7 @@ func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
 		entry["cacheResponse"].(map[string]interface{})["bodyBytes"] = logEntry["cacheResponse"].(map[string]interface{})["bodyBytes"]
 		entry["cacheResponse"].(map[string]interface{})["bytes"] = logEntry["cacheResponse"].(map[string]interface{})["bytes"]
 		if !isZero(logEntry["cacheResponse"].(map[string]interface{})["contentType"]) {
-			entry["cacheResponse"].(map[string]interface{})["contentType"] = logEntry["cacheRequest"].(map[string]interface{})["contentType"]
+			entry["cacheResponse"].(map[string]interface{})["contentType"] = logEntry["cacheResponse"].(map[string]interface{})["contentType"]
 		}
 		entry["cacheResponse"].(map[string]interface{})["retriedStatus"] = logEntry["cacheResponse"].(map[string]interface{})["retriedStatus"]
 		entry["cacheResponse"].(map[string]interface{})["status"] = logEntry["cacheResponse"].(map[string]interface{})["status"]
@@ -93,9 +103,12 @@ func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
 		entry["clientRequest"].(map[string]interface{})["cookies"] = logEntry["clientRequest"].(map[string]interface{})["cookies"]
 		entry["clientRequest"].(map[string]interface{})["flags"] = logEntry["clientRequest"].(map[string]interface{})["flags"]
 		if !isZero(logEntry["clientRequest"].(map[string]interface{})["headers"]) {
-			entry["clientRequest"].(map[string]interface{})["headers"] = logEntry["cacheRequest"].(map[string]interface{})["headers"]
+			entry["clientRequest"].(map[string]interface{})["headers"] = logEntry["clientRequest"].(map[string]interface{})["headers"]
 		}
 		entry["clientRequest"].(map[string]interface{})["httpHost"] = logEntry["clientRequest"].(map[string]interface{})["httpHost"]
+		entry["clientRequest"].(map[string]interface{})["uri"] = logEntry["clientRequest"].(map[string]interface{})["uri"]
+		entry["clientRequest"].(map[string]interface{})["referer"] = logEntry["clientRequest"].(map[string]interface{})["referer"]
+		entry["clientRequest"].(map[string]interface{})["userAgent"] = logEntry["clientRequest"].(map[string]interface{})["userAgent"]
 	}
 
 	// ------------------ edge sub object ---------------------
@@ -114,6 +127,7 @@ func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
 		entry["edge"].(map[string]interface{})["rateLimitRuleId"] = logEntry["edge"].(map[string]interface{})["rateLimitRuleId"]
 
 		// Now convert the nanosecond timestamps to millisecond timestamps
+
 		switch logEntry["edge"].(map[string]interface{})["startTimestamp"].(type) {
 		case int64:
 			entry["edge"].(map[string]interface{})["startTimestamp"] = logEntry["edge"].(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
@@ -128,6 +142,45 @@ func BuildMapStr(logEntry map[string]interface{}) common.MapStr {
 		}
 
 		entry["edge"].(map[string]interface{})["usedFlags"] = logEntry["edge"].(map[string]interface{})["usedFlags"]
+
+		// Now also populate the nested waf object, if it's set
+		if _, ok := logEntry["edge"].(map[string]interface{})["waf"]; ok {
+			entry["edge"].(map[string]interface{})["waf"] = map[string]interface{}{}
+
+			// Now convert the nanosecond timestamps to millisecond timestamps
+			switch logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["startTimestamp"].(type) {
+			case int64:
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["startTimestamp"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["startTimestamp"].(int64) / int64(time.Millisecond)
+			case float64:
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["startTimestamp"] = int64(logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["startTimestamp"].(float64)) / int64(time.Millisecond)
+			}
+
+			switch logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["endTimestamp"].(type) {
+			case int64:
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["endTimestamp"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["endTimestamp"].(int64) / int64(time.Millisecond)
+			case float64:
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["endTimestamp"] = int64(logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["endTimestamp"].(float64)) / int64(time.Millisecond)
+			}
+
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["profile"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["profile"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleId"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["profile"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleMessage"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["profile"]
+			if !isZero(logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleDetail"]) {
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleDetail"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleDetail"]
+			}
+			entry["waf"].(map[string]interface{})["matchedVar"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["matchedVar"]
+			if !isZero(logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["activatedRules"]) {
+				entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["activatedRules"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["activatedRules"]
+			}
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleGroup"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["ruleGroup"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["exitCode"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["exitCode"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["xssScore"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["xssScore"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["sqlInjectionScore"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["sqlInjectionScore"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["anomalyScore"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["anomalyScore"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["tags"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["tags"]
+			entry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["flags"] = logEntry["edge"].(map[string]interface{})["waf"].(map[string]interface{})["flags"]
+
+		}
 
 	}
 
