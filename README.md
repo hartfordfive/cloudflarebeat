@@ -14,9 +14,13 @@ If you find any of these, please create an issue or even a pull request if you'r
 
 ## Getting Started with Cloudflarebeat
 
-### Overview of Application Design
+### Basic Overview of Application Design
 
-* 
+1. API request is made to the Cloudflare ELS endpoint for logs within a specific time range, ending at most 30 minutes AGO
+2. When the response is received, the gzip content is saved into a local file.
+3. Individual JSON log entries are read from the file one by one, individual fields are added into the appropriate struct, and then sent off to be published.
+4. Once all log entries in the file have been processed, the remaining log file is deleted, unless the user has specified the option to keep log original files.
+
 
 ### Requirements
 
@@ -193,6 +197,10 @@ This will fetch and create all images required for the build process. The hole p
 ## Author
 
 Alain Lefebvre <hartfordfive 'at' gmail.com>
+
+## Acknoledgements
+
+Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing access to test data, feedback and suggestions.
 
 ## License
 

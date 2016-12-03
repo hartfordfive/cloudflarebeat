@@ -17,15 +17,16 @@ import (
 )
 
 const (
-	STATEFILE_NAME = "cloudflarebeat.state"
-	NUM_MINUTES    = 30
+	STATEFILE_NAME     = "cloudflarebeat.state"
+	MIN_OFFSET_MINUTES = 30 * 60
 )
 
 type Cloudflarebeat struct {
 	done   chan struct{}
 	config config.Config
 	client publisher.Client
-	state  *cloudflare.StateFile
+	state  *cloudflare.StateFile,
+	logConsumer *cloudflare.LogConsumer,
 }
 
 // Creates beater
@@ -35,13 +36,15 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
 
-	if config.Period.Minutes() < 1 {
+	if config.Period.Minutes() < 1 || config.Period.Minutes() > 30 {
+		logp.Warn("Chosen period of %s is not valid. Changing to 5m", config.Period.String())
 		config.Period = 5 * time.Minute
 	}
 
 	bt := &Cloudflarebeat{
 		done:   make(chan struct{}),
 		config: config,
+		logConsumer: cloudflare.NewLogConsumer(15, 2, 2),
 	}
 
 	sfConf := map[string]string{
@@ -108,12 +111,13 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
 			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
 		} else {
-			// Set the start and end time if this is the first run
-			timeStart = timeNow - 3600 // start an hour ago
+			// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
+			timeStart = timeNow - MIN_OFFSET_MINUTES - (int(bt.config.Period.Minutes()) * 60)
 			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes ago
 		}
 
-		timeEnd = timeStart + (int(bt.config.Period.Seconds()) * 60)
+		// up to X minutes ago, 1 >= X <= 30
+		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) //
 
 		bt.state.UpdateLastRequestTS(timeNow)
 
@@ -125,8 +129,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		if err != nil {
 			logp.Err("Error downloading logs from CF: %v", err)
+			continue
 		} else {
-
 			logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 		}
 
@@ -212,13 +216,13 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		}
 
 		// Now delete the log file
-
-		if err := os.Remove(cc.LogfileName); err != nil {
-			logp.Err("Could not delete local log file %s: %s", cc.LogfileName, err.Error())
-		} else {
-			logp.Info("Deleted local log file %s", cc.LogfileName)
+		if bt.config.DeleteLogFileAfterProcessing {
+			if err := os.Remove(cc.LogfileName); err != nil {
+				logp.Err("Could not delete local log file %s: %s", cc.LogfileName, err.Error())
+			} else {
+				logp.Info("Deleted local log file %s", cc.LogfileName)
+			}
 		}
-
 		counter++
 
 	}

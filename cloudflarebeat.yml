@@ -4,13 +4,17 @@
 
 cloudflarebeat:
   # Defines how often an event is sent to the output
-  period: 1800s
+  #period: 30m  # Set to 30 minutes by default 
   api_key: "abc123efg456hij789"
-  email: "hartfordfive@example.com"
-  zone_tag: "zone-tag-1"
-  #state_file_storage_type: "s3"
-  #aws_access_key: ""
-  #aws_secret_access_key: ""
+  email: "youremail@example.com"
+  zone_tag: "yourzonetag" # merchantos.com
+  # state_file_name: 
+  # state_file_path: 
+  #state_file_storage_type: "s3" # Default is disk
+  #aws_access_key: "YOURACCESSKEY"
+  #aws_secret_access_key: "YOURSECRETACCESSKEY"
+  #aws_s3_bucket_name: "bucket-name"
+  #delete_logfile_after_processing: true
   #debug: false
 
 #================================ General =====================================
@@ -46,6 +50,7 @@ output.elasticsearch:
 
   # Would set the following option to false if you want to customize your own template
   #template.enabled: true 
+  #bulk_max_size: 100 # If you have many requests/large log files, it may speed up the indexing process if you have a higher bulk max size
 #----------------------------- Logstash output --------------------------------
 #output.logstash:
   # The Logstash hosts
@@ -62,15 +67,16 @@ output.elasticsearch:
   #ssl.key: "/etc/pki/client/cert.key"
 
 #================================ Processors =====================================
-# The following processor 'drop_field' config is necessary in order to avoid mapping errors when 
-# the cache.cacheExternalIp field is an empty string ""
-processors:
- - drop_fields:
-     when:
-       and:
-         - equals:
-             cache.cacheExternalIp: ""
-     fields: ["cache.cacheExternalIp"]
+# Processors allow you to drop events or fields based on certain conditions
+# View more details here: https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html
+#processors:
+#- drop_event:
+#    when:
+#      and:
+#        - equals:
+#            zonePlan: "test"
+#        - equals:
+#            zoneName: "myzonename.com"
 
 #================================ Logging =====================================
 
