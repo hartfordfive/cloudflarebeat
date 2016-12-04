@@ -22,9 +22,10 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	Period:               30 * time.Minute,
-	StateFileStorageType: "disk",
-	StateFileName:        "cloudflarebeat.state",
-	StateFilePath:        "/etc/cloudflarebeat/",
-	Debug:                false,
+	Period:                       30 * time.Minute,
+	StateFileStorageType:         "disk",
+	StateFileName:                "cloudflarebeat.state",
+	StateFilePath:                "/etc/cloudflarebeat/",
+	DeleteLogFileAfterProcessing: true,
+	Debug: false,
 }

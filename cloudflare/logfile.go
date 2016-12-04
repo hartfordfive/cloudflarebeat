@@ -37,6 +37,9 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 		logp.Err("Error copying byte stream to %s: %v", l.Filename, err)
 		return 0, err
 	}
+	if nBytes == 0 {
+		l.Destroy()
+	}
 	fh.Close()
 
 	if err != nil {
@@ -46,4 +49,10 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 	}
 
 	return nBytes, nil
+}
+
+func (l *RequestLogFile) Destroy() {
+	if err := os.Remove(l.Filename); err != nil {
+		logp.Err("Could not delete local log file %s: %s", l.Filename, err.Error())
+	}
 }

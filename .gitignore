@@ -12,3 +12,4 @@ cloudflarebeat.local.yml
 sample_*
 cloudflare_logs_*
 NOTES.md
+*.bak

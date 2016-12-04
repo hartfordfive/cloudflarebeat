@@ -54,10 +54,10 @@ func NewClient(params map[string]interface{}) *CloudflareClient {
 	return c
 }
 
-func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) error {
+func (c *CloudflareClient) doRequest(actionType string, params map[string]interface{}) (string, error) {
 
 	qsa := url.Values{}
-	url := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
+	apiUrl := API_BASE + fmt.Sprintf(c.methods[actionType][1], params["zone_tag"].(string))
 
 	if actionType == "get_range_from_timestamp" {
 
@@ -73,7 +73,7 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 	}
 
 	req := goreq.Request{
-		Uri:         url,
+		Uri:         apiUrl,
 		Timeout:     10 * time.Minute,
 		ShowDebug:   c.debug,
 		QueryString: qsa,
@@ -91,20 +91,28 @@ func (c *CloudflareClient) doRequest(actionType string, params map[string]interf
 
 	response, err := req.Do()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Now need to save all the resposne content to a file
-	c.LogfileName = fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
-	rlf := NewRequestLogFile(c.LogfileName)
-	c.RequestLogFile = rlf
-	nBytes, err := c.RequestLogFile.SaveFromHttpResponseBody(response.Body)
+	/*
+		c.LogfileName = fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
+		rlf := NewRequestLogFile(c.LogfileName)
+		c.RequestLogFile = rlf
+		nBytes, err := c.RequestLogFile.SaveFromHttpResponseBody(response.Body)
+		if err != nil {
+			return err
+		}
+		logp.Info("Downloaded %d bytes", nBytes)
+	*/
+	logFileName := fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
+	rlf := NewRequestLogFile(logFileName)
+	nBytes, err := rlf.SaveFromHttpResponseBody(response.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 	logp.Info("Downloaded %d bytes", nBytes)
-
-	return nil
+	return logFileName, nil
 }
 
 /*
@@ -120,10 +128,10 @@ func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{})
 }
 */
 
-func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) error {
-	err := c.doRequest("get_range_from_timestamp", opts)
+func (c *CloudflareClient) GetLogRangeFromTimestamp(opts map[string]interface{}) (string, error) {
+	filename, err := c.doRequest("get_range_from_timestamp", opts)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return filename, nil
 }
