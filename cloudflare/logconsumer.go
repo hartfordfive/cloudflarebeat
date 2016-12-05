@@ -1,18 +1,27 @@
 package cloudflare
 
 import (
+	"bufio"
+	"compress/gzip"
+	"os"
+	"sync"
 	"time"
 
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
+	"github.com/pquerna/ffjson/ffjson"
 )
 
 type LogConsumer struct {
 	TotalLogFileSegments int
 	//segmentSize          int
-	totalDownloaders int
-	totalProcessors  int
-	cloudflareClient *CloudflareClient
-	LogFilesReady    chan string
+	totalDownloaders  int
+	totalProcessors   int
+	cloudflareClient  *CloudflareClient
+	LogFilesReady     chan string
+	EventsReady       chan common.MapStr
+	CompletedNotifier chan bool
+	WaitGroup         sync.WaitGroup
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
@@ -21,9 +30,12 @@ func NewLogConsumer(cfEmail string, cfApiKey string, numSegments int, donwloader
 	lc := &LogConsumer{
 		TotalLogFileSegments: numSegments,
 		//segmentSize:          ((timeEnd - timeStart) / numSegments),
-		totalDownloaders: donwloaders,
-		totalProcessors:  processors,
-		LogFilesReady:    make(chan string, numSegments),
+		totalDownloaders:  donwloaders,
+		totalProcessors:   processors,
+		LogFilesReady:     make(chan string, numSegments),
+		EventsReady:       make(chan common.MapStr),
+		CompletedNotifier: make(chan bool, 1),
+		WaitGroup:         sync.WaitGroup{},
 	}
 	lc.cloudflareClient = NewClient(map[string]interface{}{
 		"api_key": cfApiKey,
@@ -40,6 +52,8 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 	currTimeStart := timeStart
 	currTimeEnd := currTimeStart + segmentSize
 	var timeNow int
+
+	lc.waitGroup.Add(lc.TotalLogFileSegments)
 
 	for i := 0; i < lc.TotalLogFileSegments; i++ {
 		go func(lc *LogConsumer, segmentNum int, currTimeStart int, currTimeEnd int) {
@@ -71,9 +85,73 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 
 }
 
-func (lc *LogConsumer) ProcessCurrentLogFiles() {
+func (lc *LogConsumer) PrepareEvents() {
 
-	// 1.  Get log file from LogFilesReady channel
-	// 2. Process the file
+	var l map[string]interface{}
+	var evt common.MapStr
+	var logItem []byte
+	//filesProcessed := 0
+
+	for {
+
+		select {
+		case logFileName := <-lc.LogFilesReady:
+
+			logp.Info("Log file %s ready for processing.", logFileName)
+			fh, err := os.Open(logFileName)
+			if err != nil {
+				logp.Err("Error opening gziped file for reading: %v", err)
+				DeleteLogLife(logFileName)
+				lc.WaitGroup.Done()
+				continue
+			}
+			defer fh.Close()
+
+			/* Now we need to read the content form the file, split line by line and itterate over them */
+			logp.Info("Opening gziped file %s for reading...", logFileName)
+			gz, err := gzip.NewReader(fh)
+			if err != nil {
+				logp.Err("Could not open file for reading: %v", err)
+				DeleteLogLife(logFileName)
+				lc.WaitGroup.Done()
+				continue
+			}
+			defer gz.Close()
+
+			timePreIndex := int(time.Now().UTC().Unix())
+			scanner := bufio.NewScanner(gz)
+
+			for scanner.Scan() {
+				logItem = scanner.Bytes()
+				err := ffjson.Unmarshal(logItem, &l)
+				if err == nil {
+					evt = BuildMapStr(l)
+					evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
+					evt["type"] = "cloudflare"
+					lc.EventsReady <- evt
+				} else {
+					logp.Err("Could not load JSON: %s", err)
+				}
+				//l = nil
+			}
+
+			logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
+
+			// Now delete the log file
+			DeleteLogLife(logFileName)
+
+			//filesProcessed++
+
+			/*
+				if filesProcessed == bt.logConsumer.TotalLogFileSegments {
+					break
+				}
+			*/
+			logp.Info("")
+			lc.WaitGroup.Done()
+
+		} // END select
+
+	} // End for loop
 
 }

@@ -56,3 +56,9 @@ func (l *RequestLogFile) Destroy() {
 		logp.Err("Could not delete local log file %s: %s", l.Filename, err.Error())
 	}
 }
+
+func DeleteLogLife(filename string) {
+	if err := os.Remove(filename); err != nil {
+		logp.Err("Could not delete local log file %s: %s", filename, err.Error())
+	}
+}

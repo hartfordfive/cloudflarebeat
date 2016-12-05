@@ -1,10 +1,11 @@
 package beater
 
 import (
-	"bufio"
-	"compress/gzip"
+	//"bufio"
+	//"compress/gzip"
 	"fmt"
 	"os"
+	//"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -13,12 +14,13 @@ import (
 	"github.com/elastic/beats/libbeat/publisher"
 	"github.com/hartfordfive/cloudflarebeat/cloudflare"
 	"github.com/hartfordfive/cloudflarebeat/config"
-	"github.com/pquerna/ffjson/ffjson"
+	//"github.com/pquerna/ffjson/ffjson"
 )
 
 const (
-	STATEFILE_NAME     = "cloudflarebeat.state"
-	MIN_OFFSET_MINUTES = 30 * 60
+	STATEFILE_NAME         = "cloudflarebeat.state"
+	OFFSET_PAST_MINUTES    = 30
+	TOTAL_LOGFILE_SEGMENTS = 6
 )
 
 type Cloudflarebeat struct {
@@ -44,7 +46,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	bt := &Cloudflarebeat{
 		done:        make(chan struct{}),
 		config:      config,
-		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, 6, 6, 6),
+		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, 6, 6),
 	}
 
 	sfConf := map[string]string{
@@ -91,12 +93,13 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		logp.Info("  End time loaded from state file: %s", time.Unix(int64(bt.state.GetLastEndTS()), 0).Format(time.RFC3339))
 	}
 
-	var timeStart, timeEnd, timeNow, timePreIndex int
+	var timeStart, timeEnd, timeNow int
 	//var l map[string]interface{}
 	var evt common.MapStr
-	var logItem []byte
+	//var logItem []byte
 
-	var currCount int
+	//var currCount int
+	//var wg sync.WaitGroup
 
 	for {
 
@@ -114,7 +117,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
 		} else {
 			// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
-			timeStart = timeNow - MIN_OFFSET_MINUTES - (int(bt.config.Period.Minutes()) * 60)
+			timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60)
 			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes ago
 		}
 
@@ -140,88 +143,122 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 		go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
 
+		go bt.logConsumer.PrepareEvents()
 		//----------------------------------------------------
 		// Start of processing goroutine
-		go func(bt *Cloudflarebeat) {
+		/*
 
-			filesProcessed := 0
-			var l map[string]interface{}
+			wg = sync.WaitGroup{}
+			wg.Add(TOTAL_LOGFILE_SEGMENTS)
+
+			for j := 0; j < TOTAL_LOGFILE_SEGMENTS; j++ {
+				go func(bt *Cloudflarebeat, wg *sync.WaitGroup) {
+
+					filesProcessed := 0
+					var l map[string]interface{}
+
+					for {
+
+						select {
+						case logFileName := <-bt.logConsumer.LogFilesReady:
+
+							logp.Info("Log file %s ready for processing.", logFileName)
+							fh, err := os.Open(logFileName)
+							if err != nil {
+								logp.Err("Error opening gziped file for reading: %v", err)
+								bt.RemoveLogFile(logFileName)
+								wg.Done()
+								continue
+							}
+							defer fh.Close()
+
+							// Now we need to read the content form the file, split line by line and itterate over them
+							logp.Info("Opening gziped file %s for reading...", logFileName)
+							gz, err := gzip.NewReader(fh)
+							if err != nil {
+								logp.Err("Could not open file for reading: %v", err)
+								bt.RemoveLogFile(logFileName)
+								wg.Done()
+								continue
+							}
+							defer gz.Close()
+
+							timePreIndex = int(time.Now().UTC().Unix())
+							scanner := bufio.NewScanner(gz)
+
+							for scanner.Scan() {
+								logItem = scanner.Bytes()
+								err := ffjson.Unmarshal(logItem, &l)
+								if err == nil {
+									//counter++
+									evt = cloudflare.BuildMapStr(l)
+									evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
+									evt["type"] = "cloudflare"
+									//evt["counter"] = counter
+
+									bt.client.PublishEvent(evt)
+									//currCount++
+								} else {
+									logp.Err("Could not load JSON: %s", err)
+								}
+								l = nil
+							}
+
+							logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
+
+							// Now delete the log file
+							bt.RemoveLogFile(logFileName)
+
+							filesProcessed++
+
+							//	if filesProcessed == bt.logConsumer.TotalLogFileSegments {
+							//		break
+							//	}
+
+							wg.Done()
+							return
+
+						} // END select
+
+					} // End for loop
+
+				}(bt, &wg) // End of processing go routine
+			} // END loop to create goroutines
+			//-----------------------------------------------------
+
+			wg.Wait()
+		*/
+
+		go func() {
 
 			for {
 
 				select {
-				case logFileName := <-bt.logConsumer.LogFilesReady:
+				case <-bt.logConsumer.CompletedNotifier:
+					logp.Info("Completed processing all events for this time period")
+					break
+				case evt = <-bt.logConsumer.EventsReady:
+					bt.client.PublishEvent(evt)
+				}
+			}
 
-					logp.Info("Log file %s ready for processing.", logFileName)
-					fh, err := os.Open(logFileName)
-					if err != nil {
-						logp.Err("Error opening gziped file for reading: %v", err)
-						bt.RemoveLogFile(logFileName)
-						continue
-					}
-					defer fh.Close()
+		}()
 
-					/* Now we need to read the content form the file, split line by line and itterate over them */
-					logp.Info("Opening gziped log file for reading...")
-					gz, err := gzip.NewReader(fh)
-					if err != nil {
-						logp.Err("Could not open file for reading: %v", err)
-						bt.RemoveLogFile(logFileName)
-						continue
-					}
-					defer gz.Close()
 
-					timePreIndex = int(time.Now().UTC().Unix())
-					scanner := bufio.NewScanner(gz)
-
-					for scanner.Scan() {
-						logItem = scanner.Bytes()
-						err := ffjson.Unmarshal(logItem, &l)
-						if err == nil {
-							counter++
-							evt = cloudflare.BuildMapStr(l)
-							evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
-							evt["type"] = "cloudflare"
-							evt["counter"] = counter
-							bt.client.PublishEvent(evt)
-							currCount++
-						} else {
-							logp.Err("Could not load JSON: %s", err)
-						}
-						l = nil
-					}
-
-					logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
-
-					// Now delete the log file
-					bt.RemoveLogFile(logFileName)
-
-					filesProcessed++
-
-					if filesProcessed == bt.logConsumer.TotalLogFileSegments {
-						break
-					}
-
-				} // END select
-
-			} // End for loop
-
-		}(bt) // End of processing go routine
-
-		//-----------------------------------------------------
-
-		if currCount >= 1 {
-			logp.Info("Total events sent this period: %d", currCount)
-			// Now need to update the disk-based state file that keeps track of the current state
-			bt.state.UpdateLastStartTS(timeStart)
-			bt.state.UpdateLastEndTS(timeEnd)
-			bt.state.UpdateLastCount(currCount)
-			bt.state.UpdateLastRequestTS(timeNow)
-			currCount = 0
-		}
+		//if currCount >= 1 {
+		//logp.Info("Total events sent this period: %d", currCount)
+		// Now need to update the disk-based state file that keeps track of the current state
+		bt.state.UpdateLastStartTS(timeStart)
+		bt.state.UpdateLastEndTS(timeEnd)
+		//bt.state.UpdateLastCount(currCount)
+		bt.state.UpdateLastRequestTS(timeNow)
+		//currCount = 0
+		//}
 
 		if err := bt.state.Save(); err != nil {
 			logp.Err("Could not persist state file to storage: %s", err.Error())
+		} else {
+			logp.Info("Updated state file")
 		}
 
 		counter++
