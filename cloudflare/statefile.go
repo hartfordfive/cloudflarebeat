@@ -24,6 +24,7 @@ const (
 type StateFile struct {
 	FileName    string
 	FilePath    string
+	ZoneName    string
 	StorageType string
 	properties  Properties
 	lastUpdated time.Time

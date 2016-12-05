@@ -53,7 +53,7 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 	currTimeEnd := currTimeStart + segmentSize
 	var timeNow int
 
-	lc.waitGroup.Add(lc.TotalLogFileSegments)
+	lc.WaitGroup.Add(lc.TotalLogFileSegments)
 
 	for i := 0; i < lc.TotalLogFileSegments; i++ {
 		go func(lc *LogConsumer, segmentNum int, currTimeStart int, currTimeEnd int) {
@@ -91,6 +91,12 @@ func (lc *LogConsumer) PrepareEvents() {
 	var evt common.MapStr
 	var logItem []byte
 	//filesProcessed := 0
+
+	go func() {
+		lc.WaitGroup.Wait()
+		lc.CompletedNotifier <- true
+		//close(c)
+	}()
 
 	for {
 
