@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -15,13 +16,14 @@ import (
 type LogConsumer struct {
 	TotalLogFileSegments int
 	//segmentSize          int
-	totalDownloaders  int
-	totalProcessors   int
-	cloudflareClient  *CloudflareClient
-	LogFilesReady     chan string
-	EventsReady       chan common.MapStr
-	CompletedNotifier chan bool
-	WaitGroup         sync.WaitGroup
+	TotalDownloaders      int
+	TotalProcessors       int
+	cloudflareClient      *CloudflareClient
+	LogFilesReady         chan string
+	EventsReady           chan common.MapStr
+	CompletedNotifier     chan bool
+	ProcessorTerminateSig chan bool
+	WaitGroup             sync.WaitGroup
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
@@ -30,12 +32,13 @@ func NewLogConsumer(cfEmail string, cfApiKey string, numSegments int, donwloader
 	lc := &LogConsumer{
 		TotalLogFileSegments: numSegments,
 		//segmentSize:          ((timeEnd - timeStart) / numSegments),
-		totalDownloaders:  donwloaders,
-		totalProcessors:   processors,
-		LogFilesReady:     make(chan string, numSegments),
-		EventsReady:       make(chan common.MapStr),
-		CompletedNotifier: make(chan bool, 1),
-		WaitGroup:         sync.WaitGroup{},
+		TotalDownloaders:      donwloaders,
+		TotalProcessors:       processors,
+		LogFilesReady:         make(chan string, numSegments*10),
+		EventsReady:           make(chan common.MapStr, 2000),
+		CompletedNotifier:     make(chan bool, 1),
+		ProcessorTerminateSig: make(chan bool, processors),
+		WaitGroup:             sync.WaitGroup{},
 	}
 	lc.cloudflareClient = NewClient(map[string]interface{}{
 		"api_key": cfApiKey,
@@ -81,6 +84,7 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 		currTimeStart = currTimeEnd + 1
 		currTimeEnd = currTimeStart + segmentSize
 
+		runtime.Gosched()
 	}
 
 }
@@ -90,17 +94,29 @@ func (lc *LogConsumer) PrepareEvents() {
 	var l map[string]interface{}
 	var evt common.MapStr
 	var logItem []byte
-	//filesProcessed := 0
+	completedProcessingNotifer := make(chan bool, 1)
 
+	// goroutine that will send notification to the goroutine publishing the events to say it's done all the files
 	go func() {
 		lc.WaitGroup.Wait()
 		lc.CompletedNotifier <- true
-		//close(c)
+		completedProcessingNotifer <- true
 	}()
+
+	/*
+		go func() {
+			lc.wgProcessing.Wait()
+			lc.completedProcessing <- true
+		}()
+	*/
 
 	for {
 
 		select {
+
+		case <-completedProcessingNotifer:
+			logp.Info("Done preparing events for publishing. Returning from goroutine.")
+			return
 		case logFileName := <-lc.LogFilesReady:
 
 			logp.Info("Log file %s ready for processing.", logFileName)
@@ -138,23 +154,15 @@ func (lc *LogConsumer) PrepareEvents() {
 				} else {
 					logp.Err("Could not load JSON: %s", err)
 				}
-				//l = nil
 			}
 
 			logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
 
 			// Now delete the log file
 			DeleteLogLife(logFileName)
-
-			//filesProcessed++
-
-			/*
-				if filesProcessed == bt.logConsumer.TotalLogFileSegments {
-					break
-				}
-			*/
-			logp.Info("")
 			lc.WaitGroup.Done()
+			runtime.Gosched()
+			break
 
 		} // END select
 

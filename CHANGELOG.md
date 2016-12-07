@@ -11,3 +11,5 @@ beta-0.2.0
 * Added `BuildMapStr` method which builds the final event to be sent.  This ensures that fields with types such as `ip` will simply be ommitted if they are an empty string, otherwise this used to cause a mapping exception.
 * Logs are now downloaded and stored in a gzip file, and then read sequentially in order to reduce memory requirement, which was previously higher due to all in-memory download and processing. 
 * Added configuration options `state_file_path` and `state_file_name` to allow custimization of state file name and file path.
+* Logs are now fetched in smaller segments, processed and published asynchronously in seperate goroutines.
+* Included the `zone_tag` in the state file name so that each Cloudflare zone will have its own state file.

@@ -52,7 +52,6 @@ func (p *Properties) ToJsonBytes() []byte {
 func NewStateFile(config map[string]string) (*StateFile, error) {
 
 	sf := &StateFile{
-		FileName:    config["filename"],
 		StorageType: config["storage_type"],
 	}
 
@@ -70,6 +69,13 @@ func NewStateFile(config map[string]string) (*StateFile, error) {
 	} else if _, ok := config["filepath"]; ok {
 		sf.FilePath = config["filepath"]
 	}
+
+	if _, ok := config["zone_tag"]; ok {
+		sf.FileName = config["filename"] + "-" + config["zone_tag"] + ".state"
+	} else {
+		sf.FileName = config["filename"] + ".state"
+	}
+
 	sf.initialize()
 	return sf, nil
 }
@@ -94,9 +100,11 @@ func (s *StateFile) initializeStateFileValues() {
 
 func (s *StateFile) loadFromDisk() error {
 
+	sfName := filepath.Join(s.FilePath, s.FileName)
+
 	// Create it if it doesn't exist
-	if _, err := os.Stat(filepath.Join(s.FilePath, s.FileName)); os.IsNotExist(err) {
-		var file, err = os.Create(filepath.Join(s.FilePath, s.FileName))
+	if _, err := os.Stat(sfName); os.IsNotExist(err) {
+		var file, err = os.Create(sfName)
 		defer file.Close()
 		if err != nil {
 			return err
@@ -106,7 +114,7 @@ func (s *StateFile) loadFromDisk() error {
 	}
 
 	// Now load the file in memory
-	sfData, err := ioutil.ReadFile(filepath.Join(s.FilePath, s.FileName))
+	sfData, err := ioutil.ReadFile(sfName)
 	if err != nil {
 		return err
 	}
@@ -117,8 +125,8 @@ func (s *StateFile) loadFromDisk() error {
 		if err != nil {
 			logp.Err("%s", err)
 			logp.Info("State file contents: %s", string(sfData))
-			err = os.Remove(filepath.Join(s.FilePath, s.FileName))
-			var file, err = os.Create(filepath.Join(s.FilePath, s.FileName))
+			err = os.Remove(sfName)
+			var file, err = os.Create(sfName)
 			defer file.Close()
 			if err != nil {
 				return err

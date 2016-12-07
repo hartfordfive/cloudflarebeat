@@ -1,8 +1,6 @@
 package beater
 
 import (
-	//"bufio"
-	//"compress/gzip"
 	"fmt"
 	"os"
 	"sync"
@@ -14,7 +12,6 @@ import (
 	"github.com/elastic/beats/libbeat/publisher"
 	"github.com/hartfordfive/cloudflarebeat/cloudflare"
 	"github.com/hartfordfive/cloudflarebeat/config"
-	//"github.com/pquerna/ffjson/ffjson"
 )
 
 const (
@@ -52,6 +49,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	sfConf := map[string]string{
 		"filename":     config.StateFileName,
 		"filepath":     config.StateFilePath,
+		"zone_tag":     config.ZoneTag,
 		"storage_type": config.StateFileStorageType,
 	}
 
@@ -77,16 +75,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 	bt.client = b.Publisher.Connect()
 	ticker := time.NewTicker(bt.config.Period)
-	counter := 0
-
-	// Initialize the Cloudflare client here
-	/*
-		cc := cloudflare.NewClient(map[string]interface{}{
-			"api_key": bt.config.APIKey,
-			"email":   bt.config.Email,
-			"debug":   bt.config.Debug,
-		})
-	*/
+	//counter := 0
 
 	if bt.state.GetLastStartTS() != 0 {
 		logp.Info("Start time loaded from state file: %s", time.Unix(int64(bt.state.GetLastStartTS()), 0).Format(time.RFC3339))
@@ -94,11 +83,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	}
 
 	var timeStart, timeEnd, timeNow int
-	//var l map[string]interface{}
 	var evt common.MapStr
-	//var logItem []byte
-
-	//var currCount int
+	var wgCompleted sync.WaitGroup
 
 	for {
 
@@ -108,62 +94,59 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		case <-ticker.C:
 		}
 
-		var wg sync.WaitGroup
+		wgCompleted = sync.WaitGroup{}
 		timeNow = int(time.Now().UTC().Unix())
 
 		if bt.state.GetLastStartTS() != 0 {
 			timeStart = bt.state.GetLastEndTS() + 1 // last end TS as per statefile + 1 second
-			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
-			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes later
 		} else {
 			// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
 			timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60)
-			//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // to 30 minutes ago
 		}
 
 		// up to X minutes ago, 1 >= X <= 30
 		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) //
-
 		bt.state.UpdateLastRequestTS(timeNow)
 
-		wg.Add(1)
+		wgCompleted.Add(1)
 
+		// Download the log segement files seperately/in-parallel in a seperate goroutine
 		go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
+
+		// As log files become ready, process it it and generate the events in a seperate goroutine
 		go bt.logConsumer.PrepareEvents()
-		//----------------------------------------------------
 
-		go func() {
-			for {
-				select {
-				case <-bt.logConsumer.CompletedNotifier:
-					logp.Info("Completed processing all events for this time period")
-					wg.Done()
-					break
-				case evt = <-bt.logConsumer.EventsReady:
-					bt.client.PublishEvent(evt)
+		// Finally, publish all the events as they're placed on the channel, then update the state file once completed
+		go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
+			logp.Info("Creating worker to publish events")
+			go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
+				for {
+					select {
+					case <-bt.logConsumer.CompletedNotifier:
+						logp.Info("Completed processing all events for this time period")
+						wgCompleted.Done()
+						break
+					case evt = <-bt.logConsumer.EventsReady:
+						bt.client.PublishEvent(evt)
+					}
 				}
+			}(wgCompleted, bt)
+
+			wgCompleted.Wait()
+
+			bt.state.UpdateLastStartTS(timeStart)
+			bt.state.UpdateLastEndTS(timeEnd)
+			bt.state.UpdateLastRequestTS(timeNow)
+
+			if err := bt.state.Save(); err != nil {
+				logp.Err("Could not persist state file to storage: %s", err.Error())
+			} else {
+				logp.Info("Updated state file")
 			}
-		}()
 
-		wg.Wait()
+		}(&wgCompleted, bt) // End of goroutine to publish events
 
-		//if currCount >= 1 {
-		//logp.Info("Total events sent this period: %d", currCount)
-		// Now need to update the disk-based state file that keeps track of the current state
-		bt.state.UpdateLastStartTS(timeStart)
-		bt.state.UpdateLastEndTS(timeEnd)
-		//bt.state.UpdateLastCount(currCount)
-		bt.state.UpdateLastRequestTS(timeNow)
-		//currCount = 0
-		//}
-
-		if err := bt.state.Save(); err != nil {
-			logp.Err("Could not persist state file to storage: %s", err.Error())
-		} else {
-			logp.Info("Updated state file")
-		}
-
-		counter++
+		logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
 
 	}
 
