@@ -103,13 +103,6 @@ func (lc *LogConsumer) PrepareEvents() {
 		completedProcessingNotifer <- true
 	}()
 
-	/*
-		go func() {
-			lc.wgProcessing.Wait()
-			lc.completedProcessing <- true
-		}()
-	*/
-
 	for {
 
 		select {
@@ -162,7 +155,6 @@ func (lc *LogConsumer) PrepareEvents() {
 			DeleteLogLife(logFileName)
 			lc.WaitGroup.Done()
 			runtime.Gosched()
-			break
 
 		} // END select
 
