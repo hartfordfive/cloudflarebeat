@@ -14,10 +14,7 @@ import (
 )
 
 type LogConsumer struct {
-	TotalLogFileSegments int
-	//segmentSize          int
-	TotalDownloaders      int
-	TotalProcessors       int
+	TotalLogFileSegments  int
 	cloudflareClient      *CloudflareClient
 	LogFilesReady         chan string
 	EventsReady           chan common.MapStr
@@ -27,21 +24,18 @@ type LogConsumer struct {
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
-func NewLogConsumer(cfEmail string, cfApiKey string, numSegments int, donwloaders int, processors int) *LogConsumer {
+func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int) *LogConsumer {
 
 	lc := &LogConsumer{
-		TotalLogFileSegments: numSegments,
-		//segmentSize:          ((timeEnd - timeStart) / numSegments),
-		TotalDownloaders:      donwloaders,
-		TotalProcessors:       processors,
+		TotalLogFileSegments:  numSegments,
 		LogFilesReady:         make(chan string, numSegments*10),
-		EventsReady:           make(chan common.MapStr, 2000),
+		EventsReady:           make(chan common.MapStr, eventBufferSize),
 		CompletedNotifier:     make(chan bool, 1),
 		ProcessorTerminateSig: make(chan bool, processors),
 		WaitGroup:             sync.WaitGroup{},
 	}
 	lc.cloudflareClient = NewClient(map[string]interface{}{
-		"api_key": cfApiKey,
+		"api_key": cfAPIKey,
 		"email":   cfEmail,
 		"debug":   true,
 	})

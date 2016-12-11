@@ -18,20 +18,17 @@ type Config struct {
 	AwsSecretAccessKey           string        `config:"aws_secret_access_key"`
 	AwsS3BucketName              string        `config:"aws_s3_bucket_name"`
 	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
-	TotalDownloadWorkers         int           `config:"total_download_workers"`
 	TotalProcessorWorkers        int           `config:"total_processor_workers"`
-	ProcessedEventsBuffer        int           `config:"processed_events_buffer"`
+	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
 	Debug                        bool          `config:"debug"`
 }
 
 var DefaultConfig = Config{
-	Period:                       30 * time.Minute,
+	Period:                       10 * time.Minute,
 	StateFileStorageType:         "disk",
 	StateFileName:                "cloudflarebeat",
 	StateFilePath:                "/etc/cloudflarebeat/",
 	DeleteLogFileAfterProcessing: true,
-	//TotalProcessorWorkers:        4,
-	TotalDownloadWorkers:  6,
-	ProcessedEventsBuffer: 1000,
+	ProcessedEventsBufferSize:    1000,
 	Debug: false,
 }

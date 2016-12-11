@@ -43,7 +43,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	bt := &Cloudflarebeat{
 		done:        make(chan struct{}),
 		config:      config,
-		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, 6, 6),
+		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6),
 	}
 
 	sfConf := map[string]string{
