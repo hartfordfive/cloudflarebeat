@@ -2,7 +2,7 @@ package beater
 
 import (
 	"fmt"
-	"os"
+	//"os"
 	"sync"
 	"time"
 
@@ -75,7 +75,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 	bt.client = b.Publisher.Connect()
 	ticker := time.NewTicker(bt.config.Period)
-	//counter := 0
 
 	if bt.state.GetLastStartTS() != 0 {
 		logp.Info("Start time loaded from state file: %s", time.Unix(int64(bt.state.GetLastStartTS()), 0).Format(time.RFC3339))
@@ -150,16 +149,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 	}
 
-}
-
-func (bt *Cloudflarebeat) RemoveLogFile(logFileName string) {
-	if bt.config.DeleteLogFileAfterProcessing {
-		if err := os.Remove(logFileName); err != nil {
-			logp.Err("Could not delete local log file %s: %s", logFileName, err.Error())
-		} else {
-			logp.Info("Deleted local log file %s", logFileName)
-		}
-	}
 }
 
 func (bt *Cloudflarebeat) Stop() {

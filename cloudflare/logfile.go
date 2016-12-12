@@ -27,11 +27,6 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 		return 0, err
 	}
 
-	// Should track the current copy progress here with the TeeReader and write to a new file once the number of bytes
-	// written reaches 5MB (5242880 bytes).  This way, the downloaded files can be read & processed simultaneously.
-	// Dicussion thread:  https://groups.google.com/forum/#!topic/golang-nuts/8sdk5qkTRjM
-	// Sample Go code: https://play.golang.org/p/N6xL8_fnV2
-
 	nBytes, err := io.Copy(fh, respBody)
 	if err != nil {
 		logp.Err("Error copying byte stream to %s: %v", l.Filename, err)
