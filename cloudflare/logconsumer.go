@@ -37,7 +37,7 @@ func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBuffe
 	lc.cloudflareClient = NewClient(map[string]interface{}{
 		"api_key": cfAPIKey,
 		"email":   cfEmail,
-		"debug":   true,
+		"debug":   false,
 	})
 	return lc
 }

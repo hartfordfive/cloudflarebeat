@@ -28,6 +28,9 @@ type Cloudflarebeat struct {
 	logConsumer *cloudflare.LogConsumer
 }
 
+var timeStart, timeEnd, timeNow int
+var wgCompleted sync.WaitGroup
+
 // Creates beater
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	config := config.DefaultConfig
@@ -81,9 +84,31 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		logp.Info("  End time loaded from state file: %s", time.Unix(int64(bt.state.GetLastEndTS()), 0).Format(time.RFC3339))
 	}
 
-	var timeStart, timeEnd, timeNow int
-	var evt common.MapStr
-	var wgCompleted sync.WaitGroup
+	/*
+		var timeStart, timeEnd, timeNow int
+		var evt common.MapStr
+		var wgCompleted sync.WaitGroup
+	*/
+
+	/*
+		If a state file already exists and is loaded, download and process the cloudflare logs
+		immediately from now to the last end timestamp
+	*/
+
+	/*
+		logp.Info("Last Start TS: %d", bt.state.GetLastStartTS())
+		logp.Info("Last End TS: %d", bt.state.GetLastEndTS())
+		logp.Info("Last Request TS: %d", bt.state.GetLastRequestTS())
+		os.Exit(1)
+	*/
+
+	if bt.state.GetLastEndTS() != 0 {
+		timeNow = int(time.Now().UTC().Unix())
+		timeStart = bt.state.GetLastEndTS() + 1
+		//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
+		logp.Info("Catching up. Immediately processing logs between %s to %s", time.Unix(int64(timeStart), 0), time.Unix(int64(timeNow), 0))
+		bt.DownloadAndPublish(timeNow, timeStart, timeNow)
+	}
 
 	for {
 
@@ -93,61 +118,77 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		case <-ticker.C:
 		}
 
-		wgCompleted = sync.WaitGroup{}
 		timeNow = int(time.Now().UTC().Unix())
-
 		if bt.state.GetLastStartTS() != 0 {
 			timeStart = bt.state.GetLastEndTS() + 1 // last end TS as per statefile + 1 second
 		} else {
-			// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
-			timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60)
+			timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60) // Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
 		}
+		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
 
-		// up to X minutes ago, 1 >= X <= 30
-		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) //
-		bt.state.UpdateLastRequestTS(timeNow)
-
-		wgCompleted.Add(1)
-
-		// Download the log segement files seperately/in-parallel in a seperate goroutine
-		go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
-
-		// As log files become ready, process it it and generate the events in a seperate goroutine
-		go bt.logConsumer.PrepareEvents()
-
-		// Finally, publish all the events as they're placed on the channel, then update the state file once completed
-		go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
-			logp.Info("Creating worker to publish events")
-			go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
-				for {
-					select {
-					case <-bt.logConsumer.CompletedNotifier:
-						logp.Info("Completed processing all events for this time period")
-						wgCompleted.Done()
-						break
-					case evt = <-bt.logConsumer.EventsReady:
-						bt.client.PublishEvent(evt)
-					}
-				}
-			}(wgCompleted, bt)
-
-			wgCompleted.Wait()
-
-			bt.state.UpdateLastStartTS(timeStart)
-			bt.state.UpdateLastEndTS(timeEnd)
-			bt.state.UpdateLastRequestTS(timeNow)
-
-			if err := bt.state.Save(); err != nil {
-				logp.Err("Could not persist state file to storage: %s", err.Error())
-			} else {
-				logp.Info("Updated state file")
-			}
-
-		}(&wgCompleted, bt) // End of goroutine to publish events
-
-		logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
+		bt.DownloadAndPublish(timeNow, timeStart, timeEnd)
 
 	}
+
+}
+
+func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd int) {
+
+	//var evt common.MapStr
+	wgCompleted = sync.WaitGroup{}
+	/*
+			timeNow = int(time.Now().UTC().Unix())
+
+			if bt.state.GetLastStartTS() != 0 {
+				timeStart = bt.state.GetLastEndTS() + 1 // last end TS as per statefile + 1 second
+			} else {
+				// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
+				timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60)
+			}
+
+		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
+	*/
+	bt.state.UpdateLastRequestTS(timeNow)
+
+	wgCompleted.Add(1)
+
+	// Download the log segement files seperately/in-parallel in a seperate goroutine
+	go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
+
+	// As log files become ready, process it it and generate the events in a seperate goroutine
+	go bt.logConsumer.PrepareEvents()
+
+	// Finally, publish all the events as they're placed on the channel, then update the state file once completed
+	go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
+		logp.Info("Creating worker to publish events")
+		go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
+			for {
+				select {
+				case <-bt.logConsumer.CompletedNotifier:
+					logp.Info("Completed processing all events for this time period")
+					wgCompleted.Done()
+					break
+				case evt := <-bt.logConsumer.EventsReady:
+					bt.client.PublishEvent(evt)
+				}
+			}
+		}(wgCompleted, bt)
+
+		wgCompleted.Wait()
+
+		bt.state.UpdateLastStartTS(timeStart)
+		bt.state.UpdateLastEndTS(timeEnd)
+		bt.state.UpdateLastRequestTS(timeNow)
+
+		if err := bt.state.Save(); err != nil {
+			logp.Err("Could not persist state file to storage: %s", err.Error())
+		} else {
+			logp.Info("Updated state file")
+		}
+
+	}(&wgCompleted, bt) // End of goroutine to publish events
+
+	logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
 
 }
 

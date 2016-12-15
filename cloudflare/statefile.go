@@ -94,8 +94,10 @@ func (s *StateFile) initialize() error {
 }
 
 func (s *StateFile) initializeStateFileValues() {
-	s.properties.LastStartTS = int(time.Now().UTC().Unix()) - FETCH_PERIOD_SECONDS - 1
-	s.properties.LastEndTS = int(time.Now().UTC().Unix())
+	//s.properties.LastStartTS = int(time.Now().UTC().Unix()) - FETCH_PERIOD_SECONDS - 1
+	//s.properties.LastEndTS = int(time.Now().UTC().Unix())
+	s.properties.LastStartTS = 0
+	s.properties.LastEndTS = 0
 }
 
 func (s *StateFile) loadFromDisk() error {

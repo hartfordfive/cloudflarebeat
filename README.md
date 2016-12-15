@@ -11,6 +11,9 @@ Ensure that this folder is at the following location:
 Cloudflarebeat is currently in beta.  It may have bugs and likely various optimizations that can be made.
 If you find any of these, please create an issue or even a pull request if you're familiar with development for beats library.
 
+## Acknoledgements
+
+Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing access to test data, feedback and suggestions.
 
 ## Getting Started with Cloudflarebeat
 
@@ -197,10 +200,6 @@ This will fetch and create all images required for the build process. The hole p
 ## Author
 
 Alain Lefebvre <hartfordfive 'at' gmail.com>
-
-## Acknoledgements
-
-Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing access to test data, feedback and suggestions.
 
 ## License
 
