@@ -17,9 +17,11 @@ import (
 	"github.com/elastic/beats/libbeat/logp"
 )
 
+/*
 const (
 	FETCH_PERIOD_SECONDS = 1800
 )
+*/
 
 type StateFile struct {
 	FileName    string

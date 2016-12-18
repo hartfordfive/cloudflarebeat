@@ -2,7 +2,6 @@ package beater
 
 import (
 	"fmt"
-	//"os"
 	"sync"
 	"time"
 
@@ -74,10 +73,9 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 }
 
 func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
-	logp.Info("cloudflarebeat is running! Hit CTRL-C to stop it.")
 
+	logp.Info("cloudflarebeat is running! Hit CTRL-C to stop it.")
 	bt.client = b.Publisher.Connect()
-	ticker := time.NewTicker(bt.config.Period)
 
 	if bt.state.GetLastStartTS() != 0 {
 		logp.Info("Start time loaded from state file: %s", time.Unix(int64(bt.state.GetLastStartTS()), 0).Format(time.RFC3339))
@@ -85,30 +83,32 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	}
 
 	/*
-		var timeStart, timeEnd, timeNow int
-		var evt common.MapStr
-		var wgCompleted sync.WaitGroup
-	*/
-
-	/*
 		If a state file already exists and is loaded, download and process the cloudflare logs
 		immediately from now to the last end timestamp
 	*/
-
-	/*
-		logp.Info("Last Start TS: %d", bt.state.GetLastStartTS())
-		logp.Info("Last End TS: %d", bt.state.GetLastEndTS())
-		logp.Info("Last Request TS: %d", bt.state.GetLastRequestTS())
-		os.Exit(1)
-	*/
-
 	if bt.state.GetLastEndTS() != 0 {
+
 		timeNow = int(time.Now().UTC().Unix())
+		timeDiff := int64((timeNow - (OFFSET_PAST_MINUTES * 60)) - (bt.state.GetLastEndTS() + 1))
 		timeStart = bt.state.GetLastEndTS() + 1
-		//timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
-		logp.Info("Catching up. Immediately processing logs between %s to %s", time.Unix(int64(timeStart), 0), time.Unix(int64(timeNow), 0))
-		bt.DownloadAndPublish(timeNow, timeStart, timeNow)
+
+		// If the time difference from NOW to the last time the DownloadAndPublish ran is greater than the configured period,
+		// then sleep for the resulting delta, then download and process the logs for the period
+		if timeDiff < int64(bt.config.Period.Seconds()) {
+			logp.Info("Waiting for %d seconds before catching up")
+			time.Sleep(time.Duration(int64(bt.config.Period.Seconds())-timeDiff) * time.Millisecond)
+			logp.Info("Catching up. Processing logs between %s to %s", time.Unix(int64(timeStart), 0), time.Unix(int64(timeNow), 0))
+			bt.DownloadAndPublish(int(time.Now().UTC().Unix()), timeStart, int(time.Now().UTC().Unix()))
+		} else {
+			// In this case, the time difference from NOW to the last time the DownloadAndPublish ran is greater than
+			// the configured period, so run immediately before starting the ticker
+			logp.Info("Catching up. Immediately processing logs between %s to %s", time.Unix(int64(timeStart), 0), time.Unix(int64(timeNow), 0))
+			bt.DownloadAndPublish(int(time.Now().UTC().Unix()), timeStart, int(time.Now().UTC().Unix()))
+		}
+
 	}
+
+	ticker := time.NewTicker(bt.config.Period)
 
 	for {
 
@@ -134,20 +134,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd int) {
 
-	//var evt common.MapStr
 	wgCompleted = sync.WaitGroup{}
-	/*
-			timeNow = int(time.Now().UTC().Unix())
-
-			if bt.state.GetLastStartTS() != 0 {
-				timeStart = bt.state.GetLastEndTS() + 1 // last end TS as per statefile + 1 second
-			} else {
-				// Start 30 MINUTES - SPECIFIED PERIOD MINUTES AGO
-				timeStart = timeNow - (OFFSET_PAST_MINUTES * 60) - (int(bt.config.Period.Minutes()) * 60)
-			}
-
-		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
-	*/
 	bt.state.UpdateLastRequestTS(timeNow)
 
 	wgCompleted.Add(1)
@@ -193,9 +180,9 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 }
 
 func (bt *Cloudflarebeat) Stop() {
-	bt.client.Close()
-	close(bt.done)
 	if err := bt.state.Save(); err != nil {
 		logp.Err("Could not persist state file to storage while shutting down: %s", err.Error())
 	}
+	bt.client.Close()
+	close(bt.done)
 }

@@ -114,7 +114,6 @@ func (lc *LogConsumer) PrepareEvents() {
 				lc.WaitGroup.Done()
 				continue
 			}
-			defer fh.Close()
 
 			/* Now we need to read the content form the file, split line by line and itterate over them */
 			logp.Info("Opening gziped file %s for reading...", logFileName)
@@ -125,7 +124,6 @@ func (lc *LogConsumer) PrepareEvents() {
 				lc.WaitGroup.Done()
 				continue
 			}
-			defer gz.Close()
 
 			timePreIndex := int(time.Now().UTC().Unix())
 			scanner := bufio.NewScanner(gz)
@@ -145,7 +143,9 @@ func (lc *LogConsumer) PrepareEvents() {
 
 			logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
 
-			// Now delete the log file
+			// Now close the related handles and delete the log file
+			gz.Close()
+			fh.Close()
 			DeleteLogLife(logFileName)
 			lc.WaitGroup.Done()
 			runtime.Gosched()
