@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -31,6 +32,7 @@ type StateFile struct {
 	properties  Properties
 	lastUpdated time.Time
 	s3settings  *awsS3Settings
+	lock        *sync.Mutex
 }
 
 type Properties struct {
@@ -38,6 +40,7 @@ type Properties struct {
 	LastEndTS     int `json:"last_end_ts"`
 	LastCount     int `json:"last_count"`
 	LastRequestTS int `json:"last_request_ts"`
+	LastUpdateTS  int `json:"last_update_ts"`
 }
 
 type awsS3Settings struct {
@@ -72,34 +75,41 @@ func NewStateFile(config map[string]string) (*StateFile, error) {
 		sf.FilePath = config["filepath"]
 	}
 
-	if _, ok := config["zone_tag"]; ok {
-		sf.FileName = config["filename"] + "-" + config["zone_tag"] + ".state"
-	} else {
-		sf.FileName = config["filename"] + ".state"
+	if _, ok := config["zone_tag"]; !ok {
+		return nil, errors.New("Must specify zone_tag.")
 	}
+
+	sf.FileName = config["filename"] + "-" + config["zone_tag"] + ".state"
+
+	sf.lock = &sync.Mutex{}
 
 	sf.initialize()
 	return sf, nil
 }
 
 func (s *StateFile) initialize() error {
-	// 2. If it doesn't exists, create it
 	logp.Info("Initializing state file '%s' with storage type '%s'", s.FileName, s.StorageType)
-
+	var err error
 	if s.StorageType == "disk" {
-		return s.loadFromDisk()
+		s.lock.Lock()
+		err = s.loadFromDisk()
+		s.lock.Unlock()
 	} else if s.StorageType == "s3" {
-		return s.loadFromS3()
+		s.lock.Lock()
+		err = s.loadFromS3()
+		s.lock.Unlock()
+	} else {
+		return errors.New("Unsupported storage type")
 	}
+	if err != nil {
+		return err
+	}
+	return nil
 
-	return errors.New("Unsupported storage type")
 }
 
 func (s *StateFile) initializeStateFileValues() {
-	//s.properties.LastStartTS = int(time.Now().UTC().Unix()) - FETCH_PERIOD_SECONDS - 1
-	//s.properties.LastEndTS = int(time.Now().UTC().Unix())
-	s.properties.LastStartTS = 0
-	s.properties.LastEndTS = 0
+	s.properties.LastUpdateTS = int(time.Now().UTC().Unix())
 }
 
 func (s *StateFile) loadFromDisk() error {
@@ -114,6 +124,10 @@ func (s *StateFile) loadFromDisk() error {
 			return err
 		}
 		s.initializeStateFileValues()
+		logp.Info("Saving newly initialized state file.")
+		if err := s.Save(); err != nil {
+			logp.Info("Error saving new state file: %v", err)
+		}
 		return nil
 	}
 
@@ -146,8 +160,10 @@ func (s *StateFile) loadFromDisk() error {
 
 func (s *StateFile) loadFromS3() error {
 
+	s.lock.Lock()
 	svc, err := s.getAwsSession()
 	if err != nil {
+		s.lock.Unlock()
 		return err
 	}
 
@@ -162,19 +178,24 @@ func (s *StateFile) loadFromS3() error {
 	if err != nil && err.Error() == "NoSuchKey: The specified key does not exist." {
 		// Create the file here as it doesn't exist
 		s.initializeStateFileValues()
-		//s.writeToS3(svc)
+		_ = s.Save()
+		s.lock.Unlock()
 		return err
 	} else if err != nil {
+		s.lock.Unlock()
 		return err
 	}
 
 	// File was successfully loaded.  Unmarshall into state attribute
 	var p Properties
 	if err := json.Unmarshal([]byte(fmt.Sprint(resp)), &p); err != nil {
+		s.lock.Unlock()
 		return err
 	}
 
 	s.properties = p
+	s.lock.Unlock()
+
 	return nil
 }
 
@@ -195,33 +216,49 @@ func (s *StateFile) GetLastRequestTS() int {
 }
 
 func (s *StateFile) UpdateLastStartTS(ts int) {
+	s.lock.Lock()
 	s.properties.LastStartTS = ts
+	s.lock.Unlock()
 }
 
 func (s *StateFile) UpdateLastEndTS(ts int) {
+	s.lock.Lock()
 	s.properties.LastEndTS = ts
+	s.lock.Unlock()
 }
 
 func (s *StateFile) UpdateLastCount(count int) {
+	s.lock.Lock()
 	s.properties.LastCount = count
+	s.lock.Unlock()
 }
 
 func (s *StateFile) UpdateLastRequestTS(ts int) {
+	s.lock.Lock()
 	s.properties.LastRequestTS = ts
+	s.lock.Unlock()
 }
 
 func (s *StateFile) Save() error {
 
+	var err error
+	s.lock.Lock()
 	if s.StorageType == "disk" {
-		return s.saveToDisk()
+		err = s.saveToDisk()
 	} else if s.StorageType == "s3" {
-		return s.saveToS3()
+		err = s.saveToDisk()
+	}
+	s.lock.Unlock()
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 func (s *StateFile) saveToDisk() error {
+
 	s.lastUpdated = time.Now()
+	s.properties.LastUpdateTS = int(time.Now().Unix())
 
 	// open file using READ & WRITE permission
 	var file, err = os.OpenFile(s.FileName, os.O_RDWR, 0644)
@@ -243,15 +280,6 @@ func (s *StateFile) saveToDisk() error {
 	}
 
 	return nil
-}
-
-func (s *StateFile) writeToS3(svc *s3.S3) (*s3.PutObjectOutput, error) {
-	params := &s3.PutObjectInput{
-		Bucket: aws.String(s.s3settings.s3BucketName), // Required
-		Key:    aws.String(s.FileName),                // Required
-		Body:   bytes.NewReader(s.properties.ToJsonBytes()),
-	}
-	return svc.PutObject(params)
 }
 
 func (s *StateFile) saveToS3() error {
@@ -296,4 +324,13 @@ func (s *StateFile) getAwsSession() (*s3.S3, error) {
 	})
 
 	return svc, nil
+}
+
+func (s *StateFile) writeToS3(svc *s3.S3) (*s3.PutObjectOutput, error) {
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(s.s3settings.s3BucketName), // Required
+		Key:    aws.String(s.FileName),                // Required
+		Body:   bytes.NewReader(s.properties.ToJsonBytes()),
+	}
+	return svc.PutObject(params)
 }
