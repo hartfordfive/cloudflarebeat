@@ -39,7 +39,7 @@ class TestProcessors(metricbeat.BaseTest):
         cpu = evt["system"]["cpu"]
         print(cpu.keys())
         self.assertItemsEqual(self.de_dot([
-            "system", "user", "softirq", "iowait",
+            "system", "cores", "user", "softirq", "iowait",
             "idle", "irq", "steal", "nice"
         ]), cpu.keys())
 
@@ -134,7 +134,7 @@ class TestProcessors(metricbeat.BaseTest):
         output = self.read_output(
             required_fields=["@timestamp", "type"],
         )
-        assert len(output) == 1
+        assert len(output) >= 1
 
 
     def test_include_fields(self):
