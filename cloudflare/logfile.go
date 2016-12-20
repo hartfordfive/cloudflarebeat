@@ -23,13 +23,13 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 
 	fh, err := os.Create(l.Filename)
 	if err != nil {
-		logp.Err("Error creating output file: %v", err)
+		logp.Debug("log-consumer", "[ERROR] Could not create output file: %v", err)
 		return 0, err
 	}
 
 	nBytes, err := io.Copy(fh, respBody)
 	if err != nil {
-		logp.Err("Error copying byte stream to %s: %v", l.Filename, err)
+		logp.Debug("log-consumer", "[ERROR] copying byte stream to %s: %v", l.Filename, err)
 		return 0, err
 	}
 
@@ -50,13 +50,13 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 
 func (l *RequestLogFile) Destroy() {
 	if err := os.Remove(l.Filename); err != nil {
-		logp.Err("Could not delete local log file %s: %s", l.Filename, err.Error())
+		logp.Debug("log-consumer", "[ERROR] Could not delete local log file %s: %s", l.Filename, err.Error())
 	}
 }
 
 func DeleteLogLife(filename string) {
 
 	if err := os.Remove(filename); err != nil {
-		logp.Err("Could not delete local log file %s: %s", filename, err.Error())
+		logp.Debug("log-consumer", "[ERROR] Could not delete local log file %s: %s", filename, err.Error())
 	}
 }

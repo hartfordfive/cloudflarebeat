@@ -80,16 +80,15 @@ For details of command line options, view the following links:
 - `cloudflarebeat.api_key` : The API key of the user account (mandatory)
 - `cloudflarebeat.email` : The email address of the user account (mandatory)
 - `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
+- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
 - `cloudflarebeat.state_file_path` : The path in which the state file will be saved (applicable only with `disk` storage type)
 - `cloudflarebeat.state_file_name` : The name of the state file
-- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
 - `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
 - `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
-- `cloudflarebeat.aws_s3_bucket_name` : 
-- `cloudflarebeat.delete_logfile_after_processing` : 
-- `cloudflarebeat.total_processor_workers` : 
-- `cloudflarebeat.processed_events_buffer_size` : 
-- `cloudflarebeat.debug` : 
+- `cloudflarebeat.aws_s3_bucket_name` : The name of the S3 bucket where the state file will be stored
+- `cloudflarebeat.delete_logfile_after_processing` : Delete the log files once the processing is complete (default: true)
+- `cloudflarebeat.processed_events_buffer_size` : The capacity of the processed events buffer channel (default: 1000)
+- `cloudflarebeat.debug` : Enable verbose debug mode, which includes debugging the HTTP requests to the ELS API.
 
 ## Using S3 Storage for state file
 
@@ -128,6 +127,15 @@ Below is a sample of what the policy file would look like for the S3 storage.  P
 ## Filtering out specific logs and/or log properties
 
 Please read the beats [documentation regarding processors](https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html).  This will allow you to filter events by field values or even remove event fields.
+
+## debugging
+
+Here are the debug selectors that can be used to show debug statements specific to this beat:
+
+- `beater`
+- `log-consumer`
+- `statefile`
+- `http`
 
 ### Test
 

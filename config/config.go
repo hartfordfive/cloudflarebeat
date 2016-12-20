@@ -18,7 +18,6 @@ type Config struct {
 	AwsSecretAccessKey           string        `config:"aws_secret_access_key"`
 	AwsS3BucketName              string        `config:"aws_s3_bucket_name"`
 	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
-	TotalProcessorWorkers        int           `config:"total_processor_workers"`
 	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
 	Debug                        bool          `config:"debug"`
 }

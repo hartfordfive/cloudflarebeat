@@ -88,7 +88,7 @@ func NewStateFile(config map[string]string) (*StateFile, error) {
 }
 
 func (s *StateFile) initialize() error {
-	logp.Info("Initializing state file '%s' with storage type '%s'", s.FileName, s.StorageType)
+	logp.Debug("statefile", "Initializing state file '%s' with storage type '%s'", s.FileName, s.StorageType)
 	var err error
 	if s.StorageType == "disk" {
 		s.lock.Lock()
@@ -124,9 +124,9 @@ func (s *StateFile) loadFromDisk() error {
 			return err
 		}
 		s.initializeStateFileValues()
-		logp.Info("Saving newly initialized state file.")
+		logp.Debug("statefile", "Saving newly initialized state file.")
 		if err := s.Save(); err != nil {
-			logp.Info("Error saving new state file: %v", err)
+			logp.Debug("statefile", "[ERROR] Could not save new state file: %v", err)
 		}
 		return nil
 	}
@@ -141,8 +141,8 @@ func (s *StateFile) loadFromDisk() error {
 	if err := json.Unmarshal(sfData, &dat); err != nil {
 		// If the state file isn't valid json, then re-create it
 		if err != nil {
-			logp.Err("%s", err)
-			logp.Info("State file contents: %s", string(sfData))
+			logp.Debug("statefile", "[ERROR] Could not unmarshal: %s", err)
+			logp.Debug("statefile", "State file contents: %s", string(sfData))
 			err = os.Remove(sfName)
 			var file, err = os.Create(sfName)
 			defer file.Close()
@@ -314,7 +314,7 @@ func (s *StateFile) getAwsSession() (*s3.S3, error) {
 	creds := credentials.NewStaticCredentials(s.s3settings.awsAccesKey, s.s3settings.awsSecretAccessKey, token)
 	_, err := creds.Get()
 	if err != nil {
-		logp.Err("AWS Credentials Error: %v", err)
+		logp.Debug("statefile", "[ERROR] AWS Credentials: %v", err)
 		return nil, err
 	}
 

@@ -79,7 +79,7 @@ func (c *CloudflareClient) doRequest(params map[string]interface{}) (string, err
 		req.AddHeader("X-Auth-Email", c.Email)
 	}
 
-	logp.Info("Downloading log file...")
+	logp.Debug("http", "Downloading log file...")
 
 	response, err := req.Do()
 	if err != nil {
@@ -93,7 +93,9 @@ func (c *CloudflareClient) doRequest(params map[string]interface{}) (string, err
 	if err != nil {
 		return "", err
 	}
-	logp.Info("Downloaded %d bytes", nBytes)
+
+	logp.Debug("http", "Downloaded %d bytes", nBytes)
+
 	return logFileName, nil
 }
 
