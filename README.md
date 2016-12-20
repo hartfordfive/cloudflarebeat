@@ -60,7 +60,6 @@ in the same directory with the name cloudflarebeat.
 make
 ```
 
-
 ### Run
 
 To run Cloudflarebeat with debugging output enabled, run:
@@ -75,8 +74,6 @@ For details of command line options, view the following links:
 - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-command-line.html
 
 
-
-
 ## Cloudflarebeat specific configuration options
 
 - `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  Regardless of the period, logs are always fetched from **30 MINUTES AGO - PERIOD** to **NOW**. (Default value of period is 1800s/30mins)  
@@ -88,6 +85,11 @@ For details of command line options, view the following links:
 - `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
 - `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
 - `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
+- `cloudflarebeat.aws_s3_bucket_name` : 
+- `cloudflarebeat.delete_logfile_after_processing` : 
+- `cloudflarebeat.total_processor_workers` : 
+- `cloudflarebeat.processed_events_buffer_size` : 
+- `cloudflarebeat.debug` : 
 
 ## Using S3 Storage for state file
 
