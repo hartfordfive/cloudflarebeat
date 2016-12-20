@@ -95,6 +95,7 @@ func (lc *LogConsumer) PrepareEvents() {
 		lc.WaitGroup.Wait()
 		lc.CompletedNotifier <- true
 		completedProcessingNotifer <- true
+		close(completedProcessingNotifer)
 	}()
 
 	for {

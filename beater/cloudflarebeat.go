@@ -2,7 +2,7 @@ package beater
 
 import (
 	"fmt"
-	"sync"
+	//"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -132,10 +132,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd int) {
 
-	var wgCompleted sync.WaitGroup
 	bt.state.UpdateLastRequestTS(timeNow)
-
-	wgCompleted.Add(1)
 
 	// Download the log segement files seperately/in-parallel in a seperate goroutine
 	go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
@@ -144,34 +141,26 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 	go bt.logConsumer.PrepareEvents()
 
 	// Finally, publish all the events as they're placed on the channel, then update the state file once completed
-	go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
+	go func(bt *Cloudflarebeat) {
 		logp.Info("Creating worker to publish events")
-		go func(wgCompleted *sync.WaitGroup, bt *Cloudflarebeat) {
-			for {
-				select {
-				case <-bt.logConsumer.CompletedNotifier:
-					logp.Info("Completed processing all events for this time period")
-					wgCompleted.Done()
-					break
-				case evt := <-bt.logConsumer.EventsReady:
-					bt.client.PublishEvent(evt)
-				}
+		for {
+			select {
+			case <-bt.logConsumer.CompletedNotifier:
+				logp.Info("Completed processing all events for this time period")
+				break
+			case evt := <-bt.logConsumer.EventsReady:
+				bt.client.PublishEvent(evt)
 			}
-		}(wgCompleted, bt)
-
-		wgCompleted.Wait()
-
+		}
 		bt.state.UpdateLastStartTS(timeStart)
 		bt.state.UpdateLastEndTS(timeEnd)
 		bt.state.UpdateLastRequestTS(timeNow)
-
 		if err := bt.state.Save(); err != nil {
 			logp.Err("Could not persist state file to storage: %s", err.Error())
 		} else {
 			logp.Info("Updated state file")
 		}
-
-	}(&wgCompleted, bt) // End of goroutine to publish events
+	}(bt)
 
 	logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
 
