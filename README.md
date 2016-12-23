@@ -31,7 +31,7 @@ Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing
 
 ### Cloudflarebeat specific configuration options
 
-- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  Regardless of the period, logs are always fetched from **30 MINUTES AGO - PERIOD** to **NOW**. (Default value of period is 1800s/30mins)  
+- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  Regardless of the period, logs are always fetched from ***30 MINUTES AGO - PERIOD*** to ***30 MINUTES AGO***. (Default value of period is 1800s/30mins)  
 - `cloudflarebeat.api_key` : The API key of the user account (mandatory)
 - `cloudflarebeat.email` : The email address of the user account (mandatory)
 - `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
