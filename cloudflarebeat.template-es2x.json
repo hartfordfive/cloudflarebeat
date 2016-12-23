@@ -18,7 +18,7 @@
               "type": "string"
             },
             "match_mapping_type": "string",
-            "path_match": "fields.*"
+            "match": "*"
           }
         }
       ],
@@ -41,7 +41,7 @@
           }
         },
         "brandId": {
-          "type": "long", "index":"not_analyzed"
+          "type": "long"
         },
         "cache": {
           "properties": {
@@ -51,9 +51,9 @@
             "cacheInternalIp": {"type": "ip"},
             "cacheServerName": {"type": "string", "ignore_above": 256},
             "cacheStatus": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
-            "cacheTokens": {"type": "integer"},
-            "endTimestamp": {"type": "date", "format": "epoch_millis"},
-            "startTimestamp": {"type": "date", "format": "epoch_millis"}
+            "cacheFileKey": {"type": "string", "index":"not_analyzed", "ignore_above": 256},
+            "endTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
+            "startTimestamp": {"type": "date", "format": "epoch_millis||date_time"}
           }
         },
         "cacheRequest": {
@@ -94,7 +94,6 @@
             "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
           }
         },
-
 
         "clientRequest": {
           "properties": {
@@ -153,15 +152,14 @@
           }
         },
 
-
         "counter": {"type": "long"},
+
         "edge": {
           "properties": {
             "bbResult": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "cacheResponseTime": {"type": "long"},
             "colo": {"type": "integer"},
             "enabledFlags": {"type": "integer"},
-            "endTimestamp": {"type": "date", "format": "epoch_millis"},
             "flServerIp": {"type": "ip"},
             "flServerName": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "flServerPort": {"type": "integer"},
@@ -169,10 +167,32 @@
             "pathingSrc": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "pathingStatus": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
             "rateLimitRuleId": {"type": "integer"},
-            "startTimestamp": {"type": "date", "format": "epoch_millis"},
-            "usedFlags": {"type": "integer"}
+            "startTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
+            "endTimestamp": {"type": "date", "format": "epoch_millis||date_time"},
+            "usedFlags": {"type": "integer"},
+            "waf": {
+              "properties": {
+                "timestamptStart": {"type": "long"},
+                "timestamptEnd": {"type": "long"},
+                "profile": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleMessage": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "action": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "ruleDetail": {"type": "nested"},
+                "matchedVar": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "activatedRules": {"type": "nested"},
+                "ruleGroup": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "exitCode": {"type": "integer"},
+                "xssScore": {"type": "integer"},
+                "sqlInjectionScore": {"type": "integer"},
+                "anomalyScore": {"type": "integer"},
+                "tags": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+                "flags": {"type": "integer"}
+              }
+            }
           }
         },
+
         "edgeRequest": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -204,6 +224,7 @@
             }
           }
         },
+
         "edgeResponse": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -225,8 +246,10 @@
             "status": {"type": "integer"}
           }
         },
+
         "flags": {"type": "integer"},
         "hosterId": {"type": "integer"},
+        
         "origin": {
           "properties": {
             "asNum": {"type": "integer"},
@@ -237,6 +260,7 @@
             "sslProtocol": {"type": "string", "index": "not_analyzed", "ignore_above": 256}
           }
         },
+
         "originResponse": {
           "properties": {
             "bodyBytes": {"type": "long"},
@@ -248,12 +272,14 @@
             "status": {"type": "integer"}
           }
         },
+        
         "ownerId": {"type": "long"},
         "rayId": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "securityLevel": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
-        "timestamp": {"type": "date", "format": "epoch_millis"},
+        "timestamp": {"type": "long"},
         "type": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
         "unstable": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+
         "zoneId": {"type": "integer"},
         "zoneName": {
           "type": "string", 
@@ -267,6 +293,7 @@
           }
         },
         "zonePlan": {"type": "string", "index": "not_analyzed", "ignore_above": 256},
+
         "tags": {
           "ignore_above": 1024,
           "index": "not_analyzed",

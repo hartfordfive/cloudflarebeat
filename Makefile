@@ -6,6 +6,8 @@ ES_BEATS?=./vendor/github.com/elastic/beats
 GOPACKAGES=$(shell glide novendor)
 PREFIX?=.
 
+
+GO_LDFLAGS=$(-ldflags "-X beat.buildDate=`date +%Y-%m-%d` beat.commitHash=`git rev-parse --verify HEAD`")
 # Path to the libbeat Makefile
 -include $(ES_BEATS)/libbeat/scripts/Makefile
 

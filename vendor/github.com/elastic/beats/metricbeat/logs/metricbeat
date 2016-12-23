@@ -1,0 +1,17 @@
+2016-09-02T16:24:23-04:00 INFO Setup Beat: metricbeat; Version: 5.0.0-alpha6
+2016-09-02T16:24:23-04:00 INFO Loading template enabled. Reading template file: /Users/alain.lefebvre/Documents/code/github_personal/elastic-beats/metricbeat/metricbeat.template.json
+2016-09-02T16:24:23-04:00 INFO Loading template enabled for Elasticsearch 2.x. Reading template file: /Users/alain.lefebvre/Documents/code/github_personal/elastic-beats/metricbeat/metricbeat.template-es2x.json
+2016-09-02T16:24:23-04:00 INFO Elasticsearch url: http://localhost:9200
+2016-09-02T16:24:23-04:00 INFO Activated elasticsearch as output plugin.
+2016-09-02T16:24:23-04:00 INFO Publisher name: Alain-L-MBP
+2016-09-02T16:24:23-04:00 INFO Flush Interval set to: 1s
+2016-09-02T16:24:23-04:00 INFO Max Bulk Size set to: 50
+2016-09-02T16:24:23-04:00 INFO Register [ModuleFactory:[system], MetricSetFactory:[apache/status, beats/filebeat, beats/libbeat, haproxy/info, haproxy/stat, mongodb/status, mysql/status, nginx/stubstatus, postgresql/activity, postgresql/bgwriter, postgresql/database, redis/info, redis/keyspace, system/core, system/cpu, system/filesystem, system/fsstat, system/load, system/memory, system/network, system/process, zookeeper/mntr]]
+2016-09-02T16:24:23-04:00 INFO metricbeat start running.
+2016-09-02T16:24:23-04:00 ERR Connecting error publishing events (retrying): Get http://localhost:9200: dial tcp 127.0.0.1:9200: getsockopt: connection refused
+2016-09-02T16:24:24-04:00 ERR Connecting error publishing events (retrying): Get http://localhost:9200: dial tcp 127.0.0.1:9200: getsockopt: connection refused
+2016-09-02T16:24:26-04:00 ERR Connecting error publishing events (retrying): Get http://localhost:9200: dial tcp 127.0.0.1:9200: getsockopt: connection refused
+2016-09-02T16:24:30-04:00 ERR Connecting error publishing events (retrying): Get http://localhost:9200: dial tcp 127.0.0.1:9200: getsockopt: connection refused
+2016-09-02T16:24:38-04:00 ERR Connecting error publishing events (retrying): Get http://localhost:9200: dial tcp 127.0.0.1:9200: getsockopt: connection refused
+2016-09-02T16:24:46-04:00 INFO Total non-zero values:  fetches.system-memory.events=3 fetches.system-memory.success=3 fetches.system-network.events=36 fetches.system-cpu.events=3 libbeat.outputs.messages_dropped=1 libbeat.publisher.messages_in_worker_queues=760 libbeat.publisher.published_events=760 fetches.system-filesystem.events=12 fetches.system-filesystem.success=3 fetches.system-process.events=703 fetches.system-process.success=3 fetches.system-network.success=3 fetches.system-cpu.success=3 fetches.system-load.events=3 fetches.system-load.success=3
+2016-09-02T16:24:46-04:00 INFO metricbeat stopped.

@@ -1,15 +1,88 @@
 # Cloudflarebeat
 
-Welcome to Cloudflarebeat.
+Custom beat to fetch Cloudflare logs via the Enterprise Log Share API.
 
 Ensure that this folder is at the following location:
 `${GOPATH}/github.com/hartfordfive`
 
+## Disclaimer
+
+Cloudflarebeat is currently in beta therefore it likely has bugs and various optimizations that can be made.
+If you find any of these, please create an issue or even a pull request if you're familiar with development for beats library.
+
+## Acknoledgements
+
+Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing access to test data, feedback and suggestions.
+
 ## Getting Started with Cloudflarebeat
+
+### Basic Overview of Application Design
+
+1. API request is made to the Cloudflare ELS endpoint for logs within a specific time range, ending at the latest, 30 minutes AGO
+2. When the response is received, the gzip content is saved into a local file.
+3. Individual JSON log entries are read from the file one by one, individual fields are added into the event and then sent off to be published.
+4. Once all log entries in the file have been processed, the remaining log file is deleted, unless the user has specified the option to keep the original log files.
 
 ### Requirements
 
 * [Golang](https://golang.org/dl/) 1.7
+* [goreq](https://github.com/franela/goreq)
+* [ffjson](https://github.com/pquerna/ffjson/ffjson)
+
+### Cloudflarebeat specific configuration options
+
+- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  Regardless of the period, logs are always fetched from ***30 MINUTES AGO - PERIOD*** to ***30 MINUTES AGO***. (Default value of period is 1800s/30mins)  
+- `cloudflarebeat.api_key` : The API key of the user account (mandatory)
+- `cloudflarebeat.email` : The email address of the user account (mandatory)
+- `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
+- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk` or `s3`, which keeps track of the current progress. (Default: disk)
+- `cloudflarebeat.state_file_path` : The path in which the state file will be saved (applicable only with `disk` storage type)
+- `cloudflarebeat.state_file_name` : The name of the state file
+- `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
+- `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
+- `cloudflarebeat.aws_s3_bucket_name` : The name of the S3 bucket where the state file will be stored
+- `cloudflarebeat.delete_logfile_after_processing` : Delete the log files once the processing is complete (default: true)
+- `cloudflarebeat.processed_events_buffer_size` : The capacity of the processed events buffer channel (default: 1000)
+- `cloudflarebeat.debug` : Enable verbose debug mode, which includes debugging the HTTP requests to the ELS API.
+
+### Using S3 Storage for state file
+
+For cloudflarebeat, it's probably best to create a seperate IAM user account, without a password and only this sample policy file.  Best to limit the access of your user as a security practice.
+
+Below is a sample of what the policy file would look like for the S3 storage.  Please note you should replace `my-cloudflarebeat-bucket-name` with your bucket name that you've created in S3.
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::my-cloudflarebeat-bucket-name"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::my-cloudflarebeat-bucket-name/*"
+            ]
+        }
+    ]
+}
+```
+
+### Filtering out specific logs and/or log properties
+
+Please read the beats [documentation regarding processors](https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html).  This will allow you to filter events by field values or even remove event fields.
+
 
 ### Init Project
 To get running with Cloudflarebeat and also install the
@@ -39,7 +112,6 @@ in the same directory with the name cloudflarebeat.
 make
 ```
 
-
 ### Run
 
 To run Cloudflarebeat with debugging output enabled, run:
@@ -52,20 +124,6 @@ For details of command line options, view the following links:
 
 - https://www.elastic.co/guide/en/beats/libbeat/master/config-file-format-cli.html
 - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-command-line.html
-
-
-## Cloudflarebeat specific configuration options
-
-- `cloudflarebeat.period` : The period at which the cloudflare logs will be fetched.  (Default value is 1800s/30mins which is the default suggested by the Enterprise Log Share API documentation page.)
-- `cloudflarebeat.api_key` : The API key of the user account (mandatory)
-- `cloudflarebeat.email` : The email address of the user account (mandatory)
-- `cloudflarebeat.zone_tag` : The zone tag of the domain for which you want to access the enterpise logs (mandatory)
-- `cloudflarebeat.state_file_storage_type` : The type of storage for the state file, either `disk`, `s3`, or `consul`, which keeps track of the current progress. (Defau)
-- `cloudflarebeat.aws_access_key` : The user AWS access key, if S3 storage selected.
-- `cloudflarebeat.aws_secret_access_key` : The user AWS secret access key, if S3 storage selected.
-
-## Filtering out specific logs and/or log properties
-
 
 ### Test
 
@@ -135,3 +193,13 @@ make package
 ```
 
 This will fetch and create all images required for the build process. The hole process to finish can take several minutes.
+
+
+## Author
+
+Alain Lefebvre <hartfordfive 'at' gmail.com>
+
+## License
+
+Covered under the Apache License, Version 2.0
+Copyright (c) 2016 Alain Lefebvre

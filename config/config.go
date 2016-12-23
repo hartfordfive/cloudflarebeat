@@ -6,35 +6,28 @@ package config
 import "time"
 
 type Config struct {
-	Period               time.Duration `config:"period"`
-	APIKey               string        `config:"api_key"`
-	Email                string        `config:"email"`
-	APIServiceKey        string        `config:"api_service_key"`
-	ZoneTag              string        `config:"zone_tag"`
-	AwsAccessKey         string        `config:"aws_access_key"`
-	AwsSecretAccessKey   string        `config:"aws_secret_access_key"`
-	StateFileStorageType string        `config:"state_file_storage_type"`
-	Exclude              Conditions    `config:"exclude"`
-	Debug                bool          `config:"debug"`
-	//ExcludeConditions    map[string][]string `config:"exclude_conditions"`
-}
-
-type Conditions struct {
-	Or  []Condition `config:"or"`
-	And []Condition `config:"and"`
-}
-
-type Condition struct {
-	Query string `config:"query"`
-	Value string `config:"value"`
+	Period                       time.Duration `config:"period"`
+	APIKey                       string        `config:"api_key"`
+	Email                        string        `config:"email"`
+	APIServiceKey                string        `config:"api_service_key"`
+	ZoneTag                      string        `config:"zone_tag"`
+	StateFileStorageType         string        `config:"state_file_storage_type"`
+	StateFileName                string        `config:"state_file_name"`
+	StateFilePath                string        `config:"state_file_path"`
+	AwsAccessKey                 string        `config:"aws_access_key"`
+	AwsSecretAccessKey           string        `config:"aws_secret_access_key"`
+	AwsS3BucketName              string        `config:"aws_s3_bucket_name"`
+	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
+	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
+	Debug                        bool          `config:"debug"`
 }
 
 var DefaultConfig = Config{
-	Period:               30 * time.Minute,
-	StateFileStorageType: "disk",
-	Debug:                false,
-	Exclude: Conditions{
-		Or:  make([]Condition, 4),
-		And: make([]Condition, 4),
-	},
+	Period:                       10 * time.Minute,
+	StateFileStorageType:         "disk",
+	StateFileName:                "cloudflarebeat",
+	StateFilePath:                "/etc/cloudflarebeat/",
+	DeleteLogFileAfterProcessing: true,
+	ProcessedEventsBufferSize:    1000,
+	Debug: false,
 }

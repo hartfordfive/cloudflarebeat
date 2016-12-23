@@ -12,7 +12,7 @@ import yaml
 from datetime import datetime, timedelta
 
 BEAT_REQUIRED_FIELDS = ["@timestamp", "type",
-                        "beat.name", "beat.hostname"]
+                        "beat.name", "beat.hostname", "beat.version"]
 
 INTEGRATION_TESTS = os.environ.get('INTEGRATION_TESTS', False)
 
@@ -376,7 +376,7 @@ class TestCase(unittest.TestCase):
                     raise Exception("Unexpected key '{}' found"
                                     .format(key))
 
-    def load_fields(self, fields_doc="../../etc/fields.yml"):
+    def load_fields(self, fields_doc="../../_meta/fields.generated.yml"):
         """
         Returns a list of fields to expect in the output dictionaries
         and a second list that contains the fields that have a
@@ -401,16 +401,21 @@ class TestCase(unittest.TestCase):
                     dictfields.extend(subdictfields)
                 else:
                     fields.append(newName)
-                    if field.get("type") == "dict":
+                    if field.get("type") in ["dict", "geo_point"]:
                         dictfields.append(newName)
             return fields, dictfields
+
+        # Not all beats have a fields.generated.yml. Fall back to fields.yml
+        if not os.path.isfile(fields_doc):
+            fields_doc = "../../_meta/fields.yml"
 
         # TODO: Make fields_doc path more generic to work with beat-generator
         with open(fields_doc, "r") as f:
             # TODO: Make this path more generic to work with beat-generator.
-            with open("../../../libbeat/_meta/fields.yml") as f2:
+            with open("../../../libbeat/_meta/fields.common.yml") as f2:
                 content = f2.read()
 
+            #content = "fields:\n"
             content += f.read()
             doc = yaml.load(content)
 
@@ -457,3 +462,13 @@ class TestCase(unittest.TestCase):
                 return pred(len([1 for line in f]))
         except IOError:
             return False
+
+    def get_elasticsearch_url(self):
+        """
+        Returns an elasticsearch.Elasticsearch instance built from the
+        env variables like the integration tests.
+        """
+        return "http://{host}:{port}".format(
+            host=os.getenv("ES_HOST", "localhost"),
+            port=os.getenv("ES_PORT", "9200"),
+        )
