@@ -106,7 +106,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	}
 
 	//logp.Info("Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
-	logp.Debug("information", "Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
+	logp.Info("Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
 	ticker := time.NewTicker(bt.config.Period)
 
 	for {
@@ -143,11 +143,11 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 
 	// Finally, publish all the events as they're placed on the channel, then update the state file once completed
 	go func(bt *Cloudflarebeat) {
-		logp.Debug("beater", "Creating worker to publish events")
+		logp.Info("Creating worker to publish events")
 		for {
 			select {
 			case <-bt.logConsumer.CompletedNotifier:
-				logp.Debug("beater", "Completed processing all events for this time period")
+				logp.Info("Completed processing all events for this time period")
 				break
 			case evt := <-bt.logConsumer.EventsReady:
 				bt.client.PublishEvent(evt)
@@ -157,19 +157,19 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 		bt.state.UpdateLastEndTS(timeEnd)
 		bt.state.UpdateLastRequestTS(timeNow)
 		if err := bt.state.Save(); err != nil {
-			logp.Debug("beater", "[ERROR] Could not persist state file to storage: %s", err.Error())
+			logp.Info("[ERROR] Could not persist state file to storage: %s", err.Error())
 		} else {
-			logp.Debug("beater", "Updated state file")
+			logp.Info("Updated state file")
 		}
 	}(bt)
 
-	logp.Debug("beater", "Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
+	logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
 
 }
 
 func (bt *Cloudflarebeat) Stop() {
 	if err := bt.state.Save(); err != nil {
-		logp.Debug("beater", "[ERROR] Could not persist state file to storage while shutting down: %s", err.Error())
+		logp.Info("[ERROR] Could not persist state file to storage while shutting down: %s", err.Error())
 	}
 	bt.client.Close()
 	close(bt.done)

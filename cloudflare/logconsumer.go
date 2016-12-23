@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -57,7 +58,7 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 
 			timeNow = int(time.Now().UTC().Unix())
 
-			logp.Debug("log-consumer", "Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
+			logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
 			//logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
 
 			filename, err := lc.cloudflareClient.GetLogRangeFromTimestamp(map[string]interface{}{
@@ -67,13 +68,12 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 			})
 
 			if err != nil {
-				logp.Debug("log-consumer", "Error downloading logs from CF: %v", err)
-				//logp.Err("Error downloading logs from CF: %v", err)
+				logp.Err("Could not download logs from CF: %v", err)
 				return
 			}
 
 			lc.LogFilesReady <- filename
-			logp.Debug("log-consumer", "Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
+			logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 			//logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 
 		}(lc, i, currTimeStart, currTimeEnd)
@@ -106,14 +106,14 @@ func (lc *LogConsumer) PrepareEvents() {
 		select {
 
 		case <-completedProcessingNotifer:
-			logp.Debug("log-consumer", "Done preparing events for publishing. Returning from goroutine.")
+			logp.Info("Done preparing events for publishing. Returning from goroutine.")
 			return
 		case logFileName := <-lc.LogFilesReady:
 
-			logp.Debug("log-consumer", "Log file %s ready for processing.", logFileName)
+			logp.Info("Log file %s ready for processing.", logFileName)
 			fh, err := os.Open(logFileName)
 			if err != nil {
-				logp.Debug("log-consumer", "[ERROR] Could not open gziped file for reading: %v", err)
+				logp.Err("Could not open gziped file for reading: %v", err)
 				DeleteLogLife(logFileName)
 				lc.WaitGroup.Done()
 				continue
@@ -123,7 +123,7 @@ func (lc *LogConsumer) PrepareEvents() {
 			logp.Info("Opening gziped file %s for reading...", logFileName)
 			gz, err := gzip.NewReader(fh)
 			if err != nil {
-				logp.Debug("log-consumer", "[ERROR] Could not open file for reading: %v", err)
+				logp.Err("Could not open file for reading: %v", err)
 				DeleteLogLife(logFileName)
 				lc.WaitGroup.Done()
 				continue
@@ -139,13 +139,14 @@ func (lc *LogConsumer) PrepareEvents() {
 					evt = BuildMapStr(l)
 					evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
 					evt["type"] = "cloudflare"
+					evt["cfbeat_log_file"] = filepath.Base(logFileName)
 					lc.EventsReady <- evt
 				} else {
-					logp.Debug("log-consumer", "[ERROR] Could not load JSON: %s", err)
+					logp.Err("Could not load JSON: %s", err)
 				}
 			}
 
-			logp.Debug("log-consumer", "Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
+			logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
 
 			// Now close the related handles and delete the log file
 			gz.Close()
