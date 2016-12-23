@@ -18,7 +18,7 @@ Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing
 
 ### Basic Overview of Application Design
 
-1. API request is made to the Cloudflare ELS endpoint for logs within a specific time range, ending at most 30 minutes AGO
+1. API request is made to the Cloudflare ELS endpoint for logs within a specific time range, ending at the latest, 30 minutes AGO
 2. When the response is received, the gzip content is saved into a local file.
 3. Individual JSON log entries are read from the file one by one, individual fields are added into the event and then sent off to be published.
 4. Once all log entries in the file have been processed, the remaining log file is deleted, unless the user has specified the option to keep the original log files.
