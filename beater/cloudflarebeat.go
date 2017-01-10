@@ -1,8 +1,8 @@
 package beater
 
 import (
+	"flag"
 	"fmt"
-	//"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -25,12 +25,20 @@ type Cloudflarebeat struct {
 	client      publisher.Client
 	state       *cloudflare.StateFile
 	logConsumer *cloudflare.LogConsumer
+	once        bool
+	logFilesDir string
 }
 
 var timeStart, timeEnd, timeNow int
 
+var (
+	once        = flag.Bool("o", false, "Runs the process once, reading all *.tar.gz files in the specified directory")
+	logFilesDir = flag.String("ld", "logs/", "Directory from which to read tar.gz files")
+)
+
 // Creates beater
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
+
 	config := config.DefaultConfig
 	if err := cfg.Unpack(&config); err != nil {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
@@ -45,6 +53,8 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		done:        make(chan struct{}),
 		config:      config,
 		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6),
+		once:        *once,
+		logFilesDir: *logFilesDir,
 	}
 
 	sfConf := map[string]string{
@@ -76,6 +86,10 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	logp.Info("cloudflarebeat is running! Hit CTRL-C to stop it.")
 	bt.client = b.Publisher.Connect()
 
+	if bt.once {
+		bt.ReadFilesAndPublish()
+		bt.Stop()
+	}
 	/*
 		If a state file already exists and is loaded, download and process the cloudflare logs
 		immediately from now to the last end timestamp
@@ -105,7 +119,6 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 	}
 
-	//logp.Info("Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
 	logp.Info("Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
 	ticker := time.NewTicker(bt.config.Period)
 
@@ -165,6 +178,10 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 
 	logp.Info("Log files for time period %d to %d have been queued for download/processing.", timeStart, timeEnd)
 
+}
+
+func (bt *Cloudflarebeat) ReadFilesAndPublish() {
+	logp.Info("TODO :: Complete ReadFilesAndPublish function")
 }
 
 func (bt *Cloudflarebeat) Stop() {
