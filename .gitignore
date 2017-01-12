@@ -9,7 +9,9 @@ cloudflarebeat.local.yml
 build_os_binaries.sh
 /cloudflarelogs.state
 *.state
+*logs/
 /bin/*
+logs/*
 sample_*
 cloudflare_logs_*
 NOTES.md

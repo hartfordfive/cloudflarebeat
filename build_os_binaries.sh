@@ -1,14 +1,11 @@
 #!/bin/bash
 
-echo "Buidling v$1 for Linux..."
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bin/cloudflarebeat-$1-linux-amd64
-zip bin/cloudflarebeat-$1-linux-amd64.zip bin/cloudflarebeat-$1-linux-amd64
-rm bin/cloudflarebeat-$1-linux-amd64
+for OSNAME in linux darwin windows; do
 
-#GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o bin/cloudflarebeat-$1-darwin-amd64
-#zip bin/cloudflarebeat-$1-darwin-amd64.zip bin/cloudflarebeat-$1-darwin-amd64
-#rm bin/cloudflarebeat-$1-darwin-amd64
+  echo "Buidling v$1 for ${OSNAME}..."
+  GOOS=${OSNAME} GOARCH=amd64 go build -ldflags "-s -w" -o bin/cloudflarebeat-$1-${OSNAME}-amd64
+  tar -czvf bin/cloudflarebeat-$1-${OSNAME}-amd64.tar.gz bin/cloudflarebeat-$1-${OSNAME}-amd64
+  zip bin/cloudflarebeat-$1-${OSNAME}-amd64.zip bin/cloudflarebeat-$1-${OSNAME}-amd64
+  rm bin/cloudflarebeat-$1-${OSNAME}-amd64
 
-#GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o bin/cloudflarebeat-$1-windows-amd64
-#zip bin/cloudflarebeat-$1-windows-amd64.zip bin/cloudflarebeat-$1-windows-amd64
-#rm bin/cloudflarebeat-$1-windows-amd64
+done

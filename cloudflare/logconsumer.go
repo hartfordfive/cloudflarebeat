@@ -22,10 +22,11 @@ type LogConsumer struct {
 	CompletedNotifier     chan bool
 	ProcessorTerminateSig chan bool
 	WaitGroup             sync.WaitGroup
+	DeleteLogFile         bool
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
-func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int) *LogConsumer {
+func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool) *LogConsumer {
 
 	lc := &LogConsumer{
 		TotalLogFileSegments:  numSegments,
@@ -34,6 +35,7 @@ func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBuffe
 		CompletedNotifier:     make(chan bool, 1),
 		ProcessorTerminateSig: make(chan bool, processors),
 		WaitGroup:             sync.WaitGroup{},
+		DeleteLogFile:         deleteLogFile,
 	}
 	lc.cloudflareClient = NewClient(map[string]interface{}{
 		"api_key": cfAPIKey,
@@ -41,6 +43,17 @@ func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBuffe
 		"debug":   false,
 	})
 	return lc
+}
+
+// AddCurrentLogFiles processes the existing log files
+func (lc *LogConsumer) AddCurrentLogFiles(logFiles []string) {
+
+	numFiles := len(logFiles)
+	lc.WaitGroup.Add(numFiles)
+	for _, filename := range logFiles {
+		lc.LogFilesReady <- filename
+	}
+	logp.Info("Added %d log files to be processed", numFiles)
 }
 
 // DownloadCurrentLogFiles downloads the log file segments from the Cloudflare ELS API
@@ -114,7 +127,9 @@ func (lc *LogConsumer) PrepareEvents() {
 			fh, err := os.Open(logFileName)
 			if err != nil {
 				logp.Err("Could not open gziped file for reading: %v", err)
-				DeleteLogLife(logFileName)
+				if lc.DeleteLogFile {
+					DeleteLogFile(logFileName)
+				}
 				lc.WaitGroup.Done()
 				continue
 			}
@@ -124,13 +139,17 @@ func (lc *LogConsumer) PrepareEvents() {
 			gz, err := gzip.NewReader(fh)
 			if err != nil {
 				logp.Err("Could not open file for reading: %v", err)
-				DeleteLogLife(logFileName)
+				if lc.DeleteLogFile {
+					DeleteLogFile(logFileName)
+				}
 				lc.WaitGroup.Done()
 				continue
 			}
 
 			timePreIndex := int(time.Now().UTC().Unix())
 			scanner := bufio.NewScanner(gz)
+
+			logp.Info("Scanning file...")
 
 			for scanner.Scan() {
 				logItem = scanner.Bytes()
@@ -151,7 +170,10 @@ func (lc *LogConsumer) PrepareEvents() {
 			// Now close the related handles and delete the log file
 			gz.Close()
 			fh.Close()
-			DeleteLogLife(logFileName)
+			if lc.DeleteLogFile {
+				DeleteLogFile(logFileName)
+			}
+
 			lc.WaitGroup.Done()
 			runtime.Gosched()
 

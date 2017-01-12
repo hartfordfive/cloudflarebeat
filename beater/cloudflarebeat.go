@@ -3,6 +3,9 @@ package beater
 import (
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -20,20 +23,19 @@ const (
 )
 
 type Cloudflarebeat struct {
-	done        chan struct{}
-	config      config.Config
-	client      publisher.Client
-	state       *cloudflare.StateFile
-	logConsumer *cloudflare.LogConsumer
-	once        bool
-	logFilesDir string
+	done            chan struct{}
+	config          config.Config
+	client          publisher.Client
+	state           *cloudflare.StateFile
+	logConsumer     *cloudflare.LogConsumer
+	importFromFiles bool
+	logFilesDir     string
 }
 
 var timeStart, timeEnd, timeNow int
-
 var (
-	once        = flag.Bool("o", false, "Runs the process once, reading all *.tar.gz files in the specified directory")
-	logFilesDir = flag.String("ld", "logs/", "Directory from which to read tar.gz files")
+	importFromFiles = flag.Bool("f", false, "Import from *.tar.gz files and exit")
+	logFilesDir     = flag.String("fd", "logs/", "Directory from which to read *.tar.gz files (use with -f)")
 )
 
 // Creates beater
@@ -50,11 +52,11 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	}
 
 	bt := &Cloudflarebeat{
-		done:        make(chan struct{}),
-		config:      config,
-		logConsumer: cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6),
-		once:        *once,
-		logFilesDir: *logFilesDir,
+		done:            make(chan struct{}),
+		config:          config,
+		logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing),
+		importFromFiles: *importFromFiles,
+		logFilesDir:     *logFilesDir,
 	}
 
 	sfConf := map[string]string{
@@ -78,6 +80,9 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 
 	bt.state = sf
 
+	logp.Info("importFromFiles: %v", bt.importFromFiles)
+	logp.Info("logFilesDir: %s", bt.logFilesDir)
+
 	return bt, nil
 }
 
@@ -86,9 +91,10 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	logp.Info("cloudflarebeat is running! Hit CTRL-C to stop it.")
 	bt.client = b.Publisher.Connect()
 
-	if bt.once {
+	if bt.importFromFiles {
 		bt.ReadFilesAndPublish()
 		bt.Stop()
+		return nil
 	}
 	/*
 		If a state file already exists and is loaded, download and process the cloudflare logs
@@ -181,7 +187,65 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 }
 
 func (bt *Cloudflarebeat) ReadFilesAndPublish() {
-	logp.Info("TODO :: Complete ReadFilesAndPublish function")
+
+	// *************** Get the list of files in the specified directory **************
+	dir, err := os.Open(bt.logFilesDir)
+	if isError(err) {
+		bt.Stop()
+		return
+	}
+	defer dir.Close()
+
+	fi, err := dir.Stat()
+	if isError(err) {
+		bt.Stop()
+		return
+	}
+
+	filenames := make([]string, 0)
+
+	if fi.IsDir() {
+		fis, err := dir.Readdir(-1) // -1 means return all the FileInfos
+		if isError(err) {
+			bt.Stop()
+			return
+		}
+		for _, fileinfo := range fis {
+			if !fileinfo.IsDir() {
+				filenames = append(filenames, filepath.Join(bt.logFilesDir, fileinfo.Name()))
+			}
+		}
+	}
+
+	if len(filenames) == 0 {
+		bt.Stop()
+		return
+	}
+
+	logp.Info("Total files to process: %d", len(filenames))
+
+	// ****************  Now process each file ******************
+	bt.logConsumer.AddCurrentLogFiles(filenames)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go bt.logConsumer.PrepareEvents()
+
+	// Finally, publish all the events as they're placed on the channel, then update the state file once completed
+	go func(bt *Cloudflarebeat, wg *sync.WaitGroup) {
+		logp.Info("Creating worker to publish events")
+		for {
+			select {
+			case <-bt.logConsumer.CompletedNotifier:
+				logp.Info("Completed processing all event logs from local files")
+				wg.Done()
+				break
+			case evt := <-bt.logConsumer.EventsReady:
+				bt.client.PublishEvent(evt)
+			}
+		}
+	}(bt, &wg)
+	wg.Wait()
 }
 
 func (bt *Cloudflarebeat) Stop() {
@@ -190,4 +254,12 @@ func (bt *Cloudflarebeat) Stop() {
 	}
 	bt.client.Close()
 	close(bt.done)
+}
+
+func isError(err error) bool {
+	if err != nil {
+		logp.Err("%v", err)
+		return true
+	}
+	return false
 }

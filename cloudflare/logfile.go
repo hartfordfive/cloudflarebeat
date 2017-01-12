@@ -36,7 +36,7 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 	fh.Close()
 
 	if nBytes == 0 {
-		DeleteLogLife(l.Filename)
+		DeleteLogFile(l.Filename)
 	}
 
 	if err != nil {
@@ -54,7 +54,7 @@ func (l *RequestLogFile) Destroy() {
 	}
 }
 
-func DeleteLogLife(filename string) {
+func DeleteLogFile(filename string) {
 
 	if err := os.Remove(filename); err != nil {
 		logp.Debug("log-consumer", "[ERROR] Could not delete local log file %s: %s", filename, err.Error())
