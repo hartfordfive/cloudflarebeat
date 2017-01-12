@@ -45,6 +45,11 @@ Special thank you to [Lightspeed POS](http://www.lightspeedhq.com) for providing
 - `cloudflarebeat.processed_events_buffer_size` : The capacity of the processed events buffer channel (default: 1000)
 - `cloudflarebeat.debug` : Enable verbose debug mode, which includes debugging the HTTP requests to the ELS API.
 
+### Cloudflarebeat specific CLI flags:
+
+- `-f` : Run once, only importing logs from local *.gz files (default: false)
+- `-fd` : Directory from which to read *.gz files with **-f** option (default "logs/")
+
 ### Using S3 Storage for state file
 
 For cloudflarebeat, it's probably best to create a seperate IAM user account, without a password and only this sample policy file.  Best to limit the access of your user as a security practice.
