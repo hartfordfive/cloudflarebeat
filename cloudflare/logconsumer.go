@@ -29,10 +29,11 @@ type LogConsumer struct {
 func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool) *LogConsumer {
 
 	lc := &LogConsumer{
-		TotalLogFileSegments:  numSegments,
-		LogFilesReady:         make(chan string, numSegments*10),
-		EventsReady:           make(chan common.MapStr, eventBufferSize),
-		CompletedNotifier:     make(chan bool, 1),
+		TotalLogFileSegments: numSegments,
+		LogFilesReady:        make(chan string, numSegments*10),
+		EventsReady:          make(chan common.MapStr, eventBufferSize),
+		CompletedNotifier:    make(chan bool, 1),
+		//WorkerCompletionNotifier: []make(chan bool, numSegments),
 		ProcessorTerminateSig: make(chan bool, processors),
 		WaitGroup:             sync.WaitGroup{},
 		DeleteLogFile:         deleteLogFile,

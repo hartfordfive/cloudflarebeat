@@ -229,23 +229,40 @@ func (bt *Cloudflarebeat) ReadFilesAndPublish() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
+	numPublisherWorkers := 4
+	//var wgPublisherGroup map[int]sync.WaitGroup
+
 	go bt.logConsumer.PrepareEvents()
 
 	// Finally, publish all the events as they're placed on the channel, then update the state file once completed
+
 	go func(bt *Cloudflarebeat, wg *sync.WaitGroup) {
-		logp.Info("Creating worker to publish events")
+		logp.Info("Waiting for completion of event publishing")
 		for {
 			select {
 			case <-bt.logConsumer.CompletedNotifier:
 				logp.Info("Completed processing all event logs from local files")
+				close(bt.logConsumer.EventsReady)
 				wg.Done()
 				break
-			case evt := <-bt.logConsumer.EventsReady:
-				bt.client.PublishEvent(evt)
 			}
 		}
 	}(bt, &wg)
+
+	for i := 0; i < numPublisherWorkers; i++ {
+		go func(bt *Cloudflarebeat) {
+			logp.Info("Creating worker %d to publish events", i)
+			for {
+				select {
+				case evt := <-bt.logConsumer.EventsReady:
+					bt.client.PublishEvent(evt)
+				}
+			}
+		}(bt)
+	}
+
 	wg.Wait()
+
 }
 
 func (bt *Cloudflarebeat) Stop() {

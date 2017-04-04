@@ -89,6 +89,24 @@ Below is a sample of what the policy file would look like for the S3 storage.  P
 Please read the beats [documentation regarding processors](https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html).  This will allow you to filter events by field values or even remove event fields.
 
 
+### Configuration Examples
+
+The **sample_configs/** directory contains samples of various configuraiton files:
+
+1. Disk-based state file, output to Logstash. ([view config](sample_configs/cloudflarebeat_basic.yml))
+2. S3 backed state file, output to Logstash. ([view config](sample_configs/cloudflarebeat_s3state.yml))
+3. S3 backed state file, events augmented with custom tag, output to Elasticearch. ([view config](sample_configs/cloudflarebeat_addtags_es.yml))
+4. S3 backed state file, dropping specific fields, output to Elasticearch. ([view config](sample_configs/cloudflarebeat_dropfields.yml))
+5. S3 backed state file, logging DEBUG level messages to rotated files, output to Elasticearch. ([view config](sample_configs/cloudflarebeat_logging.yml))
+
+Please note the default *type* of these logs is **cloudflare**.  If you need to override this, simply specify the `type` field along with a value in the config file.
+
+
+### Event Field details
+
+To view the list of fields each ELS entry contains, please refere to the [JSON schema](els_schema.json) provided by Cloudflare.
+
+
 ### Init Project
 To get running with Cloudflarebeat and also install the
 dependencies, run the following command:
