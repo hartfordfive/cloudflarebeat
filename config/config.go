@@ -19,6 +19,7 @@ type Config struct {
 	AwsS3BucketName              string        `config:"aws_s3_bucket_name"`
 	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
 	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
+	TmpLogsDir                   string        `config:"tmp_logs_dir"`
 	Debug                        bool          `config:"debug"`
 }
 
@@ -29,5 +30,6 @@ var DefaultConfig = Config{
 	StateFilePath:                "/etc/cloudflarebeat/",
 	DeleteLogFileAfterProcessing: true,
 	ProcessedEventsBufferSize:    1000,
-	Debug: false,
+	TmpLogsDir:                   "tmp_logs/",
+	Debug:                        false,
 }

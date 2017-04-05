@@ -23,10 +23,11 @@ type LogConsumer struct {
 	ProcessorTerminateSig chan bool
 	WaitGroup             sync.WaitGroup
 	DeleteLogFile         bool
+	TmpLogFilesDir        string
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
-func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool) *LogConsumer {
+func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool, tmpLogFilesDir string) *LogConsumer {
 
 	lc := &LogConsumer{
 		TotalLogFileSegments: numSegments,
@@ -37,6 +38,7 @@ func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBuffe
 		ProcessorTerminateSig: make(chan bool, processors),
 		WaitGroup:             sync.WaitGroup{},
 		DeleteLogFile:         deleteLogFile,
+		TmpLogFilesDir:        tmpLogFilesDir,
 	}
 	lc.cloudflareClient = NewClient(map[string]interface{}{
 		"api_key": cfAPIKey,
@@ -76,10 +78,10 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 			//logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
 
 			filename, err := lc.cloudflareClient.GetLogRangeFromTimestamp(map[string]interface{}{
-				"zone_tag":   zoneTag,
-				"time_start": currTimeStart,
-				"time_end":   currTimeEnd,
-				"logs_dir":   "logs/",
+				"zone_tag":     zoneTag,
+				"time_start":   currTimeStart,
+				"time_end":     currTimeEnd,
+				"tmp_logs_dir": lc.TmpLogFilesDir,
 			})
 
 			if err != nil {

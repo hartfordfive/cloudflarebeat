@@ -4,6 +4,7 @@ import (
 	//"bufio"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/elastic/beats/libbeat/logp"
@@ -87,7 +88,13 @@ func (c *CloudflareClient) doRequest(params map[string]interface{}) (string, err
 	}
 
 	// Now need to save all the resposne content to a file
-	logFileName := fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
+	var logFileName string
+	if _, ok := params["tmp_logs_dir"]; ok {
+		logFileName = fmt.Sprintf("%s/cloudflare_logs_%d_to_%d.txt.gz", strings.Trim(params["tmp_logs_dir"].(string), "/"), params["time_start"].(int), params["time_end"].(int))
+	} else {
+		logFileName = fmt.Sprintf("cloudflare_logs_%d_to_%d.txt.gz", params["time_start"].(int), params["time_end"].(int))
+	}
+
 	rlf := NewRequestLogFile(logFileName)
 	nBytes, err := rlf.SaveFromHttpResponseBody(response.Body)
 	if err != nil {

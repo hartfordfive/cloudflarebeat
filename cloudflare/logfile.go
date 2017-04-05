@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/franela/goreq"
@@ -20,6 +21,11 @@ func NewRequestLogFile(filename string) *RequestLogFile {
 }
 
 func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, error) {
+
+	dir := filepath.Dir(l.Filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		os.MkdirAll(dir, 0700)
+	}
 
 	fh, err := os.Create(l.Filename)
 	if err != nil {
