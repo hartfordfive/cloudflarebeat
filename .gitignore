@@ -12,6 +12,7 @@ build_os_binaries.sh
 *logs/
 /bin/*
 logs/*
+tmp_logs/*
 sample_*
 cloudflare_logs_*
 NOTES.md
