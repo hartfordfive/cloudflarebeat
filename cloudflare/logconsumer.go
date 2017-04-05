@@ -79,10 +79,14 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 				"zone_tag":   zoneTag,
 				"time_start": currTimeStart,
 				"time_end":   currTimeEnd,
+				"logs_dir":   "logs/",
 			})
 
 			if err != nil {
 				logp.Err("Could not download logs from CF: %v", err)
+				// Considering this file could not be downloaded, we must mark it as completed processing otherwise the processed
+				// will just hang and forever wait for the complete waitgroup to be ack'd
+				lc.WaitGroup.Done()
 				return
 			}
 
