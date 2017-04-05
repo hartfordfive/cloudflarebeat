@@ -54,7 +54,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	bt := &Cloudflarebeat{
 		done:            make(chan struct{}),
 		config:          config,
-		logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing, config.TmpLogsDir),
+		logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing, config.ParallelLogProcessing, config.TmpLogsDir),
 		importFromFiles: *importFromFiles,
 		logFilesDir:     *logFilesDir,
 	}

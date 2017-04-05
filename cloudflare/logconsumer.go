@@ -21,13 +21,14 @@ type LogConsumer struct {
 	EventsReady           chan common.MapStr
 	CompletedNotifier     chan bool
 	ProcessorTerminateSig chan bool
+	ParallelLogProcessing bool
 	WaitGroup             sync.WaitGroup
 	DeleteLogFile         bool
 	TmpLogFilesDir        string
 }
 
 // NewLogConsumer reutrns a instance of the LogConsumer struct
-func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool, tmpLogFilesDir string) *LogConsumer {
+func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool, parallelLogProcessing bool, tmpLogFilesDir string) *LogConsumer {
 
 	lc := &LogConsumer{
 		TotalLogFileSegments: numSegments,
@@ -36,6 +37,7 @@ func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBuffe
 		CompletedNotifier:    make(chan bool, 1),
 		//WorkerCompletionNotifier: []make(chan bool, numSegments),
 		ProcessorTerminateSig: make(chan bool, processors),
+		ParallelLogProcessing: parallelLogProcessing,
 		WaitGroup:             sync.WaitGroup{},
 		DeleteLogFile:         deleteLogFile,
 		TmpLogFilesDir:        tmpLogFilesDir,
@@ -73,6 +75,8 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 		go func(lc *LogConsumer, segmentNum int, currTimeStart int, currTimeEnd int) {
 
 			timeNow = int(time.Now().UTC().Unix())
+			//retryMax := 2
+			//retryWait := 5
 
 			logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
 			//logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
@@ -108,9 +112,6 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 
 func (lc *LogConsumer) PrepareEvents() {
 
-	var l map[string]interface{}
-	var evt common.MapStr
-	var logItem []byte
 	completedProcessingNotifer := make(chan bool, 1)
 
 	// goroutine that will send notification to the goroutine publishing the events to say it's done all the files
@@ -129,63 +130,73 @@ func (lc *LogConsumer) PrepareEvents() {
 			logp.Info("Done preparing events for publishing. Returning from goroutine.")
 			return
 		case logFileName := <-lc.LogFilesReady:
-
-			logp.Info("Log file %s ready for processing.", logFileName)
-			fh, err := os.Open(logFileName)
-			if err != nil {
-				logp.Err("Could not open gziped file for reading: %v", err)
-				if lc.DeleteLogFile {
-					DeleteLogFile(logFileName)
-				}
-				lc.WaitGroup.Done()
-				continue
+			if lc.ParallelLogProcessing {
+				go prepareEvent(logFileName, lc.DeleteLogFile, &lc.WaitGroup, lc.EventsReady)
+			} else {
+				prepareEvent(logFileName, lc.DeleteLogFile, &lc.WaitGroup, lc.EventsReady)
 			}
-
-			/* Now we need to read the content form the file, split line by line and itterate over them */
-			logp.Info("Opening gziped file %s for reading...", logFileName)
-			gz, err := gzip.NewReader(fh)
-			if err != nil {
-				logp.Err("Could not open file for reading: %v", err)
-				if lc.DeleteLogFile {
-					DeleteLogFile(logFileName)
-				}
-				lc.WaitGroup.Done()
-				continue
-			}
-
-			timePreIndex := int(time.Now().UTC().Unix())
-			scanner := bufio.NewScanner(gz)
-
-			logp.Info("Scanning file...")
-
-			for scanner.Scan() {
-				logItem = scanner.Bytes()
-				err := ffjson.Unmarshal(logItem, &l)
-				if err == nil {
-					evt = BuildMapStr(l)
-					evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
-					evt["type"] = "cloudflare"
-					evt["cfbeat_log_file"] = filepath.Base(logFileName)
-					lc.EventsReady <- evt
-				} else {
-					logp.Err("Could not load JSON: %s", err)
-				}
-			}
-
-			logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
-
-			// Now close the related handles and delete the log file
-			gz.Close()
-			fh.Close()
-			if lc.DeleteLogFile {
-				DeleteLogFile(logFileName)
-			}
-
-			lc.WaitGroup.Done()
-			runtime.Gosched()
-
 		} // END select
 
 	} // End for loop
 
+}
+
+func prepareEvent(logFileName string, deleteAfteProcessing bool, wg *sync.WaitGroup, eventsReady chan common.MapStr) {
+	var l map[string]interface{}
+	var evt common.MapStr
+	var logItem []byte
+
+	logp.Info("Log file %s ready for processing.", logFileName)
+	fh, err := os.Open(logFileName)
+	if err != nil {
+		logp.Err("Could not open gziped file for reading: %v", err)
+		if deleteAfteProcessing {
+			DeleteLogFile(logFileName)
+		}
+		wg.Done()
+		return
+	}
+
+	/* Now we need to read the content form the file, split line by line and itterate over them */
+	logp.Info("Opening gziped file %s for reading...", logFileName)
+	gz, err := gzip.NewReader(fh)
+	if err != nil {
+		logp.Err("Could not open file for reading: %v", err)
+		if deleteAfteProcessing {
+			DeleteLogFile(logFileName)
+		}
+		wg.Done()
+		return
+	}
+
+	timePreIndex := int(time.Now().UTC().Unix())
+	scanner := bufio.NewScanner(gz)
+
+	logp.Info("Scanning file...")
+
+	for scanner.Scan() {
+		logItem = scanner.Bytes()
+		err := ffjson.Unmarshal(logItem, &l)
+		if err == nil {
+			evt = BuildMapStr(l)
+			evt["@timestamp"] = common.Time(time.Unix(0, int64(l["timestamp"].(float64))))
+			evt["type"] = "cloudflare"
+			evt["cfbeat_log_file"] = filepath.Base(logFileName)
+			eventsReady <- evt
+		} else {
+			logp.Err("Could not load JSON: %s", err)
+		}
+	}
+
+	logp.Info("Total processing time: %d seconds", (int(time.Now().UTC().Unix()) - timePreIndex))
+
+	// Now close the related handles and delete the log file
+	gz.Close()
+	fh.Close()
+	if deleteAfteProcessing {
+		DeleteLogFile(logFileName)
+	}
+
+	wg.Done()
+	runtime.Gosched()
 }

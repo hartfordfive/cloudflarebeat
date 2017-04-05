@@ -19,6 +19,7 @@ type Config struct {
 	AwsS3BucketName              string        `config:"aws_s3_bucket_name"`
 	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
 	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
+	ParallelLogProcessing        bool          `config:"parallel_log_processing"`
 	TmpLogsDir                   string        `config:"tmp_logs_dir"`
 	Debug                        bool          `config:"debug"`
 }
@@ -31,5 +32,6 @@ var DefaultConfig = Config{
 	DeleteLogFileAfterProcessing: true,
 	ProcessedEventsBufferSize:    1000,
 	TmpLogsDir:                   "tmp_logs/",
-	Debug:                        false,
+	ParallelLogProcessing:        false,
+	Debug: false,
 }
