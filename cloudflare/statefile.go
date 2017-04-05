@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -171,7 +172,7 @@ func (s *StateFile) loadFromS3() error {
 	}
 	resp, err := svc.GetObject(params)
 
-	if err != nil && err.Error() == "NoSuchKey: The specified key does not exist." {
+	if err != nil && strings.Contains(err.Error(), "NoSuchKey: The specified key does not exist") {
 		// Create the file here as it doesn't exist
 		s.initializeStateFileValues()
 		_ = s.Save()
@@ -238,18 +239,16 @@ func (s *StateFile) UpdateLastRequestTS(ts int) {
 func (s *StateFile) Save() error {
 
 	var err error
-	s.lock.Lock()
 	if s.StorageType == "disk" {
 		err = s.saveToDisk()
 	} else if s.StorageType == "s3" {
-		err = s.saveToDisk()
+		err = s.saveToS3()
 	}
-	s.lock.Unlock()
 	if err != nil {
 		return err
 	}
 
-	logp.Info("Done saving state file...")
+	logp.Info("State file persisted to storage.")
 	return nil
 }
 
@@ -301,8 +300,8 @@ func (s *StateFile) getAwsSession() (*s3.S3, error) {
 		Region: aws.String("us-east-1"),
 	})
 
+	//Or with debugging on:
 	/*
-		Or with debugging on:
 		sess := session.New((&aws.Config{
 			Region: aws.String("us-east-1"),
 		}).WithLogLevel(aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors))
