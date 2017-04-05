@@ -22,3 +22,4 @@ beta-0.3.0
 * Added ability to read the **.tar.gz** log files from a specified directory and exit after completion ([Issue #10](https://github.com/hartfordfive/cloudflarebeat/issues/10))
 * Fixed issue where the process hangs when a log file segment download fails, the file is never sent to the `LogFilesReady` channel, therefore never gets processord or acked in the wait group. ([Issue #15](https://github.com/hartfordfive/cloudflarebeat/issues/15))
 * Added ability to specify the path, via the config `tmp_logs_dir` option, where downloaded cloudflare logs are saved to. (Default is `"tmp_logs/"`)
+* Added option to process log file segments in parallel via the `parallel_log_processing` config option.  If set to true (default is **false**), as log file segment downloads are complete, they are processed in a seperate goroutine instead of processing each segment sequentially.
