@@ -20,6 +20,8 @@ const (
 	STATEFILE_NAME         = "cloudflarebeat.state"
 	OFFSET_PAST_MINUTES    = 30
 	TOTAL_LOGFILE_SEGMENTS = 6
+	MIN_PERIOD_LENGTH      = 6
+	MAX_PERIOD_LENGTH      = 30
 )
 
 type Cloudflarebeat struct {
@@ -46,9 +48,9 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
 
-	if config.Period.Minutes() < 1 || config.Period.Minutes() > 30 {
-		logp.Warn("Chosen period of %s is not valid. Changing to 5m", config.Period.String())
-		config.Period = 5 * time.Minute
+	if config.Period.Minutes() < MIN_PERIOD_LENGTH || config.Period.Minutes() > MAX_PERIOD_LENGTH {
+		logp.Warn("Chosen period of %s is not valid (not between %d and %d mins). Changing to 6m", config.Period.String(), MIN_PERIOD_LENGTH, MAX_PERIOD_LENGTH)
+		config.Period = MIN_PERIOD_LENGTH * time.Minute
 	}
 
 	bt := &Cloudflarebeat{
