@@ -12,11 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/elastic/beats/libbeat/logp"
+	"github.com/hartfordfive/cloudflarebeat/config"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/elastic/beats/libbeat/logp"
 )
 
 /*
@@ -55,32 +57,32 @@ func (p *Properties) ToJsonBytes() []byte {
 	return b
 }
 
-func NewStateFile(config map[string]string) (*StateFile, error) {
+func NewStateFile(config config.Config) (*StateFile, error) {
 
 	sf := &StateFile{
-		StorageType: config["storage_type"],
+		StorageType: config.StateFileStorageType,
 	}
 
-	if sf.StorageType == "s3" {
-		if _, ok := config["aws_access_key"]; !ok {
+	if config.StateFileStorageType == "s3" {
+		if config.AwsAccessKey == "" {
 			return nil, errors.New("Must specify aws_access_key when using S3 storage.")
 		}
-		if _, ok := config["aws_secret_access_key"]; !ok {
+		if config.AwsSecretAccessKey == "" {
 			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
 		}
-		if _, ok := config["aws_s3_bucket_name"]; !ok {
+		if config.AwsS3BucketName == "" {
 			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
 		}
-		sf.s3settings = &awsS3Settings{config["aws_access_key"], config["aws_secret_access_key"], config["aws_s3_bucket_name"]}
-	} else if _, ok := config["filepath"]; ok {
-		sf.FilePath = config["filepath"]
+		sf.s3settings = &awsS3Settings{config.AwsAccessKey, config.AwsSecretAccessKey, config.AwsS3BucketName}
+	} else {
+		sf.FilePath = config.StateFilePath
 	}
 
-	if _, ok := config["zone_tag"]; !ok {
+	if config.ZoneTag == "" {
 		return nil, errors.New("Must specify zone_tag.")
 	}
 
-	sf.FileName = config["filename"] + "-" + config["zone_tag"] + ".state"
+	sf.FileName = config.StateFileName + "-" + config.ZoneTag + ".state"
 
 	sf.lock = &sync.Mutex{}
 

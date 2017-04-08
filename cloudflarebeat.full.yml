@@ -11,6 +11,7 @@ cloudflarebeat:
   #state_file_storage_type: "s3"
   #aws_access_key: ""
   #aws_secret_access_key: ""
+  #parallel_log_processing: true
   #debug: true
 
 #================================ General =====================================

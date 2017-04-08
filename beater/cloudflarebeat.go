@@ -61,20 +61,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		logFilesDir:     *logFilesDir,
 	}
 
-	sfConf := map[string]string{
-		"filename":     config.StateFileName,
-		"filepath":     config.StateFilePath,
-		"zone_tag":     config.ZoneTag,
-		"storage_type": config.StateFileStorageType,
-	}
-
-	if config.AwsAccessKey != "" && config.AwsSecretAccessKey != "" && config.AwsS3BucketName != "" {
-		sfConf["aws_access_key"] = config.AwsAccessKey
-		sfConf["aws_secret_access_key"] = config.AwsSecretAccessKey
-		sfConf["aws_s3_bucket_name"] = config.AwsS3BucketName
-	}
-
-	sf, err := cloudflare.NewStateFile(sfConf)
+	sf, err := cloudflare.NewStateFile(config)
 	if err != nil {
 		logp.Err("Statefile error: %v", err)
 		return nil, err
