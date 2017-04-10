@@ -20,7 +20,7 @@ const (
 	STATEFILE_NAME         = "cloudflarebeat.state"
 	OFFSET_PAST_MINUTES    = 30
 	TOTAL_LOGFILE_SEGMENTS = 6
-	MIN_PERIOD_LENGTH      = 6
+	MIN_PERIOD_LENGTH      = 1
 	MAX_PERIOD_LENGTH      = 30
 )
 
@@ -30,6 +30,7 @@ type Cloudflarebeat struct {
 	client          publisher.Client
 	state           *cloudflare.StateFile
 	logConsumer     *cloudflare.LogConsumer
+	logSegments     chan cloudflare.LogFileSegment
 	importFromFiles bool
 	logFilesDir     string
 }
@@ -53,10 +54,13 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		config.Period = MIN_PERIOD_LENGTH * time.Minute
 	}
 
+	//logFileSegmentsChan := make(chan cloudflare.LogFileSegment, cloudflare.GetNumLogFileSegments(bt.config.Period))
+
 	bt := &Cloudflarebeat{
-		done:            make(chan struct{}),
-		config:          config,
-		logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing, config.ParallelLogProcessing, config.TmpLogsDir),
+		done:   make(chan struct{}),
+		config: config,
+		//logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing, config.ParallelLogProcessing, config.TmpLogsDir),
+		logConsumer:     cloudflare.NewLogConsumer(config),
 		importFromFiles: *importFromFiles,
 		logFilesDir:     *logFilesDir,
 	}
@@ -68,9 +72,6 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	}
 
 	bt.state = sf
-
-	//logp.Info("importFromFiles: %v", bt.importFromFiles)
-	//logp.Info("logFilesDir: %s", bt.logFilesDir)
 
 	return bt, nil
 }
@@ -85,6 +86,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		bt.Stop()
 		return nil
 	}
+
 	/*
 		If a state file already exists and is loaded, download and process the cloudflare logs
 		immediately from now to the last end timestamp
@@ -92,8 +94,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 	if bt.state.GetLastEndTS() != 0 {
 
 		timeNow = int(time.Now().UTC().Unix())
-		timeDiff := int((timeNow - (OFFSET_PAST_MINUTES * 60)) - (bt.state.GetLastEndTS() + 1))
 		timeStart = bt.state.GetLastEndTS() + 1
+		timeDiff := int((timeNow - (OFFSET_PAST_MINUTES * 60)) - timeStart)
 
 		// If the time difference from NOW to the last time the DownloadAndPublish ran is greater than the configured period,
 		// then sleep for the resulting delta, then download and process the logs for the period
@@ -103,6 +105,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			logp.Info("Waiting for %d seconds before catching up", timeWait)
 			time.Sleep(time.Duration(timeWait) * time.Second)
 			logp.Info("Catching up. Processing logs between %s to %s", time.Unix(int64(timeStart), 0), time.Unix(int64(timeEnd), 0))
+
 			bt.DownloadAndPublish(int(time.Now().UTC().Unix()), timeStart, timeEnd)
 		} else {
 			// In this case, the time difference from NOW to the last time the DownloadAndPublish ran is greater than
@@ -112,6 +115,8 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 			bt.DownloadAndPublish(int(time.Now().UTC().Unix()), timeStart, timeEnd)
 		}
 
+	} else {
+		logp.Info("No end timestamp previously set.")
 	}
 
 	logp.Info("Starting ticker with period of %d minute(s)", int(bt.config.Period.Minutes()))
@@ -133,6 +138,7 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 		}
 		timeEnd = timeStart + (int(bt.config.Period.Minutes()) * 60) // up to X minutes ago, 1 >= X <= 30
 
+		fmt.Println("Downloading logs and publishing events...")
 		bt.DownloadAndPublish(timeNow, timeStart, timeEnd)
 
 	}
@@ -141,7 +147,10 @@ func (bt *Cloudflarebeat) Run(b *beat.Beat) error {
 
 func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd int) {
 
-	bt.state.UpdateLastRequestTS(timeNow)
+	//bt.state.UpdateLastRequestTS(timeNow)
+
+	nSegments := cloudflare.GetNumLogFileSegments(bt.config.Period)
+	cloudflare.GenerateSegmentsList(bt.logSegments, nSegments, timeStart, timeEnd)
 
 	// Download the log segement files seperately/in-parallel in a seperate goroutine
 	go bt.logConsumer.DownloadCurrentLogFiles(bt.config.ZoneTag, timeStart, timeEnd)
@@ -161,10 +170,7 @@ func (bt *Cloudflarebeat) DownloadAndPublish(timeNow int, timeStart int, timeEnd
 				bt.client.PublishEvent(evt)
 			}
 		}
-		bt.state.UpdateLastStartTS(timeStart)
-		bt.state.UpdateLastEndTS(timeEnd)
-		bt.state.UpdateLastRequestTS(timeNow)
-		if err := bt.state.Save(); err != nil {
+		if err := bt.state.UpdateAndSave(timeStart, timeEnd, timeNow); err != nil {
 			logp.Info("[ERROR] Could not persist state file to storage: %s", err.Error())
 		} else {
 			logp.Info("Updated state file")

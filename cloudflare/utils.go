@@ -1,10 +1,15 @@
 package cloudflare
 
 import (
+	"math"
 	"reflect"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
+)
+
+const (
+	SEGMENT_SIZE = 120 // in seconds
 )
 
 // BuildMapStr creates a valid common.MapStr struct only containing non-empty fields
@@ -270,4 +275,58 @@ func isZero(i interface{}) bool {
 		return v.IsNil()
 	}
 	return false
+}
+
+// GetNumLogFileSegments returns the total number of log file segments to be created based on the duration
+func GetNumLogFileSegments(period time.Duration) int {
+
+	// For the time being, this should return 1 log file segment per 2 minutes
+	seconds := int64(period / time.Second)
+	if seconds <= 120 {
+		return 1
+	}
+
+	nSegments := int(seconds / (60 * 2))
+
+	if math.Mod(float64(seconds), float64(60*2)) != 0 {
+		nSegments++
+	}
+
+	return nSegments
+}
+
+func GenerateSegmentsList(segmentsChan chan LogFileSegment, numSegments, timeStart, timeEnd int) {
+
+	/* This funciton is likely not optimal.  Should eventually refactor to make it more efficient */
+
+	// For the time being, this should return 1 log file segment per 2 minutes
+	var segments []LogFileSegment
+	segments = make([]LogFileSegment, 0, numSegments)
+
+	if numSegments == 1 {
+		segmentsChan <- LogFileSegment{timeStart, timeEnd}
+		return
+	}
+
+	totalSeconds := timeEnd - timeStart
+	sr := int(math.Mod(float64(totalSeconds), float64(SEGMENT_SIZE))) //segmet remainder
+	totalFullSegments := (totalSeconds - sr) / SEGMENT_SIZE
+
+	currStart := timeStart
+	for i := 0; i < totalFullSegments; i++ {
+		segments = append(segments, LogFileSegment{currStart, (currStart + SEGMENT_SIZE)})
+		currStart += (SEGMENT_SIZE + 1)
+	}
+
+	if sr != 0 {
+		segments = append(segments, LogFileSegment{currStart, (currStart + sr)})
+	}
+
+	// Update the end time of the last segment so that it accounts for number of total full segments containing exactly SEGMENT_SIZE seconds worth of log entries
+	segments[len(segments)-1].TimeEnd = (segments[len(segments)-1].TimeEnd - len(segments)) + 1
+
+	for i := 0; i < numSegments; i++ {
+		segmentsChan <- segments[i]
+	}
+
 }

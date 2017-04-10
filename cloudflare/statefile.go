@@ -39,11 +39,11 @@ type StateFile struct {
 }
 
 type Properties struct {
-	LastStartTS   int `json:"last_start_ts"`
-	LastEndTS     int `json:"last_end_ts"`
+	LastStartTS   int `json:"last_start"`
+	LastEndTS     int `json:"last_end"`
 	LastCount     int `json:"last_count"`
-	LastRequestTS int `json:"last_request_ts"`
-	LastUpdateTS  int `json:"last_update_ts"`
+	LastRequestTS int `json:"last_request"`
+	LastUpdateTS  int `json:"last_update"`
 }
 
 type awsS3Settings struct {
@@ -176,6 +176,7 @@ func (s *StateFile) loadFromS3() error {
 
 	if err != nil && strings.Contains(err.Error(), "NoSuchKey: The specified key does not exist") {
 		// Create the file here as it doesn't exist
+		logp.Info("Created new state file")
 		s.initializeStateFileValues()
 		_ = s.Save()
 		s.lock.Unlock()
@@ -183,6 +184,8 @@ func (s *StateFile) loadFromS3() error {
 	} else if err != nil {
 		s.lock.Unlock()
 		return err
+	} else {
+		logp.Info("Loading existing state file")
 	}
 
 	// File was successfully loaded.  Unmarshall into state attribute
@@ -214,28 +217,38 @@ func (s *StateFile) GetLastRequestTS() int {
 	return s.properties.LastRequestTS
 }
 
-func (s *StateFile) UpdateLastStartTS(ts int) {
-	s.lock.Lock()
+func (s *StateFile) updateLastStartTS(ts int) {
+	//s.lock.Lock()
 	s.properties.LastStartTS = ts
-	s.lock.Unlock()
+	//s.lock.Unlock()
 }
 
-func (s *StateFile) UpdateLastEndTS(ts int) {
-	s.lock.Lock()
+func (s *StateFile) updateLastEndTS(ts int) {
+	//s.lock.Lock()
 	s.properties.LastEndTS = ts
-	s.lock.Unlock()
+	//s.lock.Unlock()
 }
 
-func (s *StateFile) UpdateLastCount(count int) {
-	s.lock.Lock()
+func (s *StateFile) updateLastCount(count int) {
+	//s.lock.Lock()
 	s.properties.LastCount = count
-	s.lock.Unlock()
+	//s.lock.Unlock()
 }
 
-func (s *StateFile) UpdateLastRequestTS(ts int) {
-	s.lock.Lock()
+func (s *StateFile) updateLastRequestTS(ts int) {
+	//s.lock.Lock()
 	s.properties.LastRequestTS = ts
+	//s.lock.Unlock()
+}
+
+func (s *StateFile) UpdateAndSave(timeStart, timeEnd, timeNow int) error {
+	s.lock.Lock()
+	s.updateLastStartTS(timeStart)
+	s.updateLastEndTS(timeEnd)
+	s.updateLastRequestTS(timeNow)
+	err := s.Save()
 	s.lock.Unlock()
+	return err
 }
 
 func (s *StateFile) Save() error {

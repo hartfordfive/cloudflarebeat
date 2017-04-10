@@ -20,6 +20,7 @@ type Config struct {
 	DeleteLogFileAfterProcessing bool          `config:"delete_logfile_after_processing"`
 	ProcessedEventsBufferSize    int           `config:"processed_events_buffer_size"`
 	ParallelLogProcessing        bool          `config:"parallel_log_processing"`
+	NumWorkers                   int           `config:"num_workers"`
 	TmpLogsDir                   string        `config:"tmp_logs_dir"`
 	Debug                        bool          `config:"debug"`
 }
@@ -33,5 +34,6 @@ var DefaultConfig = Config{
 	ProcessedEventsBufferSize:    1000,
 	TmpLogsDir:                   "tmp_logs/",
 	ParallelLogProcessing:        false,
-	Debug: false,
+	NumWorkers:                   1,
+	Debug:                        false,
 }
