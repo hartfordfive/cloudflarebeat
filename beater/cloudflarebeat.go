@@ -17,11 +17,10 @@ import (
 )
 
 const (
-	STATEFILE_NAME         = "cloudflarebeat.state"
-	OFFSET_PAST_MINUTES    = 30
-	TOTAL_LOGFILE_SEGMENTS = 6
-	MIN_PERIOD_LENGTH      = 6
-	MAX_PERIOD_LENGTH      = 30
+	STATEFILE_NAME      = "cloudflarebeat.state"
+	OFFSET_PAST_MINUTES = 30
+	MIN_PERIOD_LENGTH   = 2
+	MAX_PERIOD_LENGTH   = 30
 )
 
 type Cloudflarebeat struct {
@@ -56,7 +55,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	bt := &Cloudflarebeat{
 		done:            make(chan struct{}),
 		config:          config,
-		logConsumer:     cloudflare.NewLogConsumer(config.Email, config.APIKey, TOTAL_LOGFILE_SEGMENTS, config.ProcessedEventsBufferSize, 6, config.DeleteLogFileAfterProcessing, config.ParallelLogProcessing, config.TmpLogsDir),
+		logConsumer:     cloudflare.NewLogConsumer(config),
 		importFromFiles: *importFromFiles,
 		logFilesDir:     *logFilesDir,
 	}
@@ -68,9 +67,6 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	}
 
 	bt.state = sf
-
-	//logp.Info("importFromFiles: %v", bt.importFromFiles)
-	//logp.Info("logFilesDir: %s", bt.logFilesDir)
 
 	return bt, nil
 }

@@ -11,12 +11,19 @@ import (
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
+	"github.com/hartfordfive/cloudflarebeat/config"
 	"github.com/pquerna/ffjson/ffjson"
+)
+
+const (
+	NUM_PROCESSORS = 6
+	SEGMENT_SIZE   = 120
 )
 
 type LogConsumer struct {
 	TotalLogFileSegments  int
 	cloudflareClient      *CloudflareClient
+	Period                time.Duration
 	LogFilesReady         chan string
 	EventsReady           chan common.MapStr
 	CompletedNotifier     chan bool
@@ -27,27 +34,33 @@ type LogConsumer struct {
 	TmpLogFilesDir        string
 }
 
-// NewLogConsumer reutrns a instance of the LogConsumer struct
-func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool, parallelLogProcessing bool, tmpLogFilesDir string) *LogConsumer {
+type LogFileSegment struct {
+	TimeStart int
+	TimeEnd   int
+}
 
-	lc := &LogConsumer{
-		TotalLogFileSegments: numSegments,
-		LogFilesReady:        make(chan string, numSegments*10),
-		EventsReady:          make(chan common.MapStr, eventBufferSize),
-		CompletedNotifier:    make(chan bool, 1),
+// NewLogConsumer reutrns a instance of the LogConsumer struct
+//func NewLogConsumer(cfEmail string, cfAPIKey string, numSegments int, eventBufferSize int, processors int, deleteLogFile bool, parallelLogProcessing bool, tmpLogFilesDir string) *LogConsumer {
+func NewLogConsumer(conf config.Config) *LogConsumer {
+
+	return &LogConsumer{
+		TotalLogFileSegments: 6,
+		cloudflareClient: NewClient(map[string]interface{}{
+			"api_key": conf.APIKey,
+			"email":   conf.Email,
+			"debug":   conf.Debug,
+		}),
+		Period:            conf.Period,
+		LogFilesReady:     make(chan string, 120),
+		EventsReady:       make(chan common.MapStr, conf.ProcessedEventsBufferSize),
+		CompletedNotifier: make(chan bool, 1),
 		//WorkerCompletionNotifier: []make(chan bool, numSegments),
-		ProcessorTerminateSig: make(chan bool, processors),
-		ParallelLogProcessing: parallelLogProcessing,
+		ProcessorTerminateSig: make(chan bool, NUM_PROCESSORS),
+		ParallelLogProcessing: conf.ParallelLogProcessing,
 		WaitGroup:             sync.WaitGroup{},
-		DeleteLogFile:         deleteLogFile,
-		TmpLogFilesDir:        tmpLogFilesDir,
+		DeleteLogFile:         conf.DeleteLogFileAfterProcessing,
+		TmpLogFilesDir:        conf.TmpLogsDir,
 	}
-	lc.cloudflareClient = NewClient(map[string]interface{}{
-		"api_key": cfAPIKey,
-		"email":   cfEmail,
-		"debug":   false,
-	})
-	return lc
 }
 
 // AddCurrentLogFiles processes the existing log files
@@ -64,27 +77,24 @@ func (lc *LogConsumer) AddCurrentLogFiles(logFiles []string) {
 // DownloadCurrentLogFiles downloads the log file segments from the Cloudflare ELS API
 func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, timeEnd int) {
 
-	segmentSize := (timeEnd - timeStart) / lc.TotalLogFileSegments
-	currTimeStart := timeStart
-	currTimeEnd := currTimeStart + segmentSize
 	var timeNow int
+	nSegments := GetNumLogFileSegments(lc.Period)
+	segmentsList := GenerateSegmentsList(nSegments, SEGMENT_SIZE, timeStart, timeEnd)
 
-	lc.WaitGroup.Add(lc.TotalLogFileSegments)
+	lc.WaitGroup.Add(nSegments)
 
-	for i := 0; i < lc.TotalLogFileSegments; i++ {
-		go func(lc *LogConsumer, segmentNum int, currTimeStart int, currTimeEnd int) {
+	for i := 0; i < nSegments; i++ {
+		go func(lc *LogConsumer, segmentNum int, ls LogFileSegment) {
 
 			timeNow = int(time.Now().UTC().Unix())
 			//retryMax := 2
 			//retryWait := 5
 
-			logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
-			//logp.Info("Downloading log segment #%d from %d to %d", segmentNum, currTimeStart, currTimeEnd)
-
+			logp.Info("Downloading log segment #%d from %d to %d", segmentNum, ls.TimeStart, ls.TimeEnd)
 			filename, err := lc.cloudflareClient.GetLogRangeFromTimestamp(map[string]interface{}{
 				"zone_tag":     zoneTag,
-				"time_start":   currTimeStart,
-				"time_end":     currTimeEnd,
+				"time_start":   ls.TimeStart,
+				"time_end":     ls.TimeEnd,
 				"tmp_logs_dir": lc.TmpLogFilesDir,
 			})
 
@@ -100,10 +110,7 @@ func (lc *LogConsumer) DownloadCurrentLogFiles(zoneTag string, timeStart int, ti
 			logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 			//logp.Info("Total download time for log file: %d seconds", (int(time.Now().UTC().Unix()) - timeNow))
 
-		}(lc, i, currTimeStart, currTimeEnd)
-
-		currTimeStart = currTimeEnd + 1
-		currTimeEnd = currTimeStart + segmentSize
+		}(lc, i, segmentsList[i])
 
 		runtime.Gosched()
 	}

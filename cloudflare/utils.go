@@ -1,6 +1,7 @@
 package cloudflare
 
 import (
+	"math"
 	"reflect"
 	"time"
 
@@ -270,4 +271,56 @@ func isZero(i interface{}) bool {
 		return v.IsNil()
 	}
 	return false
+}
+
+// GetNumLogFileSegments returns the total number of log file segments to be created based on the duration
+func GetNumLogFileSegments(period time.Duration) int {
+
+	// For the time being, this should return 1 log file segment per 2 minutes
+	seconds := int64(period / time.Second)
+	if seconds <= 120 {
+		return 1
+	}
+
+	nSegments := int(seconds / (60 * 2))
+
+	if math.Mod(float64(seconds), float64(60*2)) != 0 {
+		nSegments++
+	}
+
+	return nSegments
+}
+
+func GenerateSegmentsList(numSegments, segmentSize, timeStart, timeEnd int) []LogFileSegment {
+
+	/* This funciton is likely not optimal.  Should eventually refactor to make it more efficient */
+
+	// For the time being, this should return 1 log file segment per 2 minutes
+	var segments []LogFileSegment
+	segments = make([]LogFileSegment, 0, numSegments)
+
+	if numSegments == 1 {
+		segments = append(segments, LogFileSegment{timeStart, timeEnd})
+		return segments
+	}
+
+	totalSeconds := timeEnd - timeStart
+	sr := int(math.Mod(float64(totalSeconds), float64(segmentSize))) //segmet remainder
+	totalFullSegments := (totalSeconds - sr) / segmentSize
+
+	currStart := timeStart
+	for i := 0; i < totalFullSegments; i++ {
+		segments = append(segments, LogFileSegment{currStart, (currStart + segmentSize)})
+		currStart += (segmentSize + 1)
+	}
+
+	if sr != 0 {
+		segments = append(segments, LogFileSegment{currStart, (currStart + sr)})
+	}
+
+	// Update the end time of the last segment so that it accounts for number of total full segments containing exactly segmentSize seconds worth of log entries
+	segments[len(segments)-1].TimeEnd = (segments[len(segments)-1].TimeEnd - len(segments)) + 1
+
+	return segments
+
 }
