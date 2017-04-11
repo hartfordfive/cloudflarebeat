@@ -8,14 +8,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/elastic/beats/libbeat/logp"
+	"github.com/hartfordfive/cloudflarebeat/config"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/elastic/beats/libbeat/logp"
 )
 
 /*
@@ -54,32 +57,32 @@ func (p *Properties) ToJsonBytes() []byte {
 	return b
 }
 
-func NewStateFile(config map[string]string) (*StateFile, error) {
+func NewStateFile(config config.Config) (*StateFile, error) {
 
 	sf := &StateFile{
-		StorageType: config["storage_type"],
+		StorageType: config.StateFileStorageType,
 	}
 
-	if sf.StorageType == "s3" {
-		if _, ok := config["aws_access_key"]; !ok {
+	if config.StateFileStorageType == "s3" {
+		if config.AwsAccessKey == "" {
 			return nil, errors.New("Must specify aws_access_key when using S3 storage.")
 		}
-		if _, ok := config["aws_secret_access_key"]; !ok {
+		if config.AwsSecretAccessKey == "" {
 			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
 		}
-		if _, ok := config["aws_s3_bucket_name"]; !ok {
+		if config.AwsS3BucketName == "" {
 			return nil, errors.New("Must specify aws_secret_access_key when using S3 storage.")
 		}
-		sf.s3settings = &awsS3Settings{config["aws_access_key"], config["aws_secret_access_key"], config["aws_s3_bucket_name"]}
-	} else if _, ok := config["filepath"]; ok {
-		sf.FilePath = config["filepath"]
+		sf.s3settings = &awsS3Settings{config.AwsAccessKey, config.AwsSecretAccessKey, config.AwsS3BucketName}
+	} else {
+		sf.FilePath = config.StateFilePath
 	}
 
-	if _, ok := config["zone_tag"]; !ok {
+	if config.ZoneTag == "" {
 		return nil, errors.New("Must specify zone_tag.")
 	}
 
-	sf.FileName = config["filename"] + "-" + config["zone_tag"] + ".state"
+	sf.FileName = config.StateFileName + "-" + config.ZoneTag + ".state"
 
 	sf.lock = &sync.Mutex{}
 
@@ -171,7 +174,7 @@ func (s *StateFile) loadFromS3() error {
 	}
 	resp, err := svc.GetObject(params)
 
-	if err != nil && err.Error() == "NoSuchKey: The specified key does not exist." {
+	if err != nil && strings.Contains(err.Error(), "NoSuchKey: The specified key does not exist") {
 		// Create the file here as it doesn't exist
 		s.initializeStateFileValues()
 		_ = s.Save()
@@ -238,18 +241,16 @@ func (s *StateFile) UpdateLastRequestTS(ts int) {
 func (s *StateFile) Save() error {
 
 	var err error
-	s.lock.Lock()
 	if s.StorageType == "disk" {
 		err = s.saveToDisk()
 	} else if s.StorageType == "s3" {
-		err = s.saveToDisk()
+		err = s.saveToS3()
 	}
-	s.lock.Unlock()
 	if err != nil {
 		return err
 	}
 
-	logp.Info("Done saving state file...")
+	logp.Info("State file persisted to storage.")
 	return nil
 }
 
@@ -301,8 +302,8 @@ func (s *StateFile) getAwsSession() (*s3.S3, error) {
 		Region: aws.String("us-east-1"),
 	})
 
+	//Or with debugging on:
 	/*
-		Or with debugging on:
 		sess := session.New((&aws.Config{
 			Region: aws.String("us-east-1"),
 		}).WithLogLevel(aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors))

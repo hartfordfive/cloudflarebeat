@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/franela/goreq"
@@ -21,6 +22,11 @@ func NewRequestLogFile(filename string) *RequestLogFile {
 
 func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, error) {
 
+	dir := filepath.Dir(l.Filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		os.MkdirAll(dir, 0700)
+	}
+
 	fh, err := os.Create(l.Filename)
 	if err != nil {
 		logp.Debug("log-consumer", "[ERROR] Could not create output file: %v", err)
@@ -36,7 +42,7 @@ func (l *RequestLogFile) SaveFromHttpResponseBody(respBody *goreq.Body) (int64, 
 	fh.Close()
 
 	if nBytes == 0 {
-		DeleteLogLife(l.Filename)
+		DeleteLogFile(l.Filename)
 	}
 
 	if err != nil {
@@ -54,7 +60,7 @@ func (l *RequestLogFile) Destroy() {
 	}
 }
 
-func DeleteLogLife(filename string) {
+func DeleteLogFile(filename string) {
 
 	if err := os.Remove(filename); err != nil {
 		logp.Debug("log-consumer", "[ERROR] Could not delete local log file %s: %s", filename, err.Error())

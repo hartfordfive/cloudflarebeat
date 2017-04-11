@@ -4,87 +4,27 @@
 
 cloudflarebeat:
   # Defines how often an event is sent to the output
-  #period: 30m  # Set to 30 minutes by default 
   api_key: "abc123efg456hij789"
   email: "youremail@example.com"
-  zone_tag: "yourzonetag" # merchantos.com
-  # state_file_name: 
-  # state_file_path: 
-  #state_file_storage_type: "s3" # Default is disk
-  #aws_access_key: "YOURACCESSKEY"
-  #aws_secret_access_key: "YOURSECRETACCESSKEY"
-  #aws_s3_bucket_name: "bucket-name"
-  #delete_logfile_after_processing: true
-  #debug: false
-
-#================================ General =====================================
-
-# The name of the shipper that publishes the network data. It can be used to group
-# all the transactions sent by a single shipper in the web interface.
-#name:
-
-# The tags of the shipper are included in their own field with each
-# transaction published.
-#tags: ["service-X", "web-tier"]
-
-# Optional fields that you can specify to add additional information to the
-# output.
-#fields:
-#  env: staging
-
+  zone_tag: "yourzonetag"
 
 #================================ Outputs =====================================
 
 # Configure what outputs to use when sending the data collected by the beat.
 # Multiple outputs may be used.
 
-#-------------------------- Elasticsearch output ------------------------------
-output.elasticsearch:
-  # Array of hosts to connect to.
-  hosts: ["localhost:9200"]
-
-  # Optional protocol and basic auth credentials.
-  #protocol: "https"
-  #username: "elastic"
-  #password: "changeme"
-
-  # Would set the following option to false if you want to customize your own template
-  #template.enabled: true 
-  #bulk_max_size: 100 # If you have many requests/large log files, it may speed up the indexing process if you have a higher bulk max size
 #----------------------------- Logstash output --------------------------------
-#output.logstash:
+output.logstash:
   # The Logstash hosts
-  #hosts: ["localhost:5044"]
+  hosts: ["localhost:5044"]
 
   # Optional SSL. By default is off.
   # List of root certificates for HTTPS server verifications
-  #ssl.certificate_authorities: ["/etc/pki/root/ca.pem"]
+  ssl.certificate_authorities: ["/etc/pki/root/ca.pem"]
 
   # Certificate for SSL client authentication
-  #ssl.certificate: "/etc/pki/client/cert.pem"
+  ssl.certificate: "/etc/pki/client/cert.pem"
 
   # Client Certificate Key
-  #ssl.key: "/etc/pki/client/cert.key"
+  ssl.key: "/etc/pki/client/cert.key"
 
-#================================ Processors =====================================
-# Processors allow you to drop events or fields based on certain conditions
-# View more details here: https://www.elastic.co/guide/en/beats/filebeat/master/configuration-processors.html
-#processors:
-#- drop_event:
-#    when:
-#      and:
-#        - equals:
-#            zonePlan: "test"
-#        - equals:
-#            zoneName: "myzonename.com"
-
-#================================ Logging =====================================
-
-# Sets log level. The default log level is info.
-# Available log levels are: critical, error, warning, info, debug
-#logging.level: debug
-
-# At debug level, you can selectively enable logging only for some components.
-# To enable all selectors use ["*"]. Examples of other selectors are "beat",
-# "publish", "service".
-#logging.selectors: ["*"]

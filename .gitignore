@@ -6,9 +6,13 @@
 /cloudflarebeat.test
 *.pyc
 cloudflarebeat.local.yml
+build_os_binaries.sh
 /cloudflarelogs.state
 *.state
+*logs/
 /bin/*
+logs/*
+tmp_logs/*
 sample_*
 cloudflare_logs_*
 NOTES.md
